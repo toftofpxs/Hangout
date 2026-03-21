@@ -1,0 +1,2 @@
+ALTER TABLE events
+ADD COLUMN end_date DATETIME NULL AFTER date;
