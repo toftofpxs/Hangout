@@ -1,11 +1,16 @@
 import { db } from "../db/index.js";
 import { users, events, inscriptions, payments } from "../db/schema.js";
-import { eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 
 const MANAGEABLE_ROLES_BY_ADMIN = ["participant", "organisateur", "admin"];
 const ALL_ROLES = ["participant", "organisateur", "admin", "super_user"];
 
 const isAdminLike = (role) => role === "admin" || role === "super_user";
+
+const toNumber = (value) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
 
 const parsePhotos = (value) => {
   if (!value) return [];
@@ -106,6 +111,113 @@ export const listUsers = async (req, res, next) => {
       .orderBy(users.created_at);
 
     res.json(rows);
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getUserStats = async (req, res, next) => {
+  try {
+    if (!req.user || !isAdminLike(req.user.role)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
+    const id = Number(req.params.id);
+    if (Number.isNaN(id)) return res.status(400).json({ message: "Invalid user id" });
+
+    const target = await db
+      .select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        role: users.role,
+        created_at: users.created_at,
+      })
+      .from(users)
+      .where(eq(users.id, id))
+      .then((rows) => rows[0]);
+
+    if (!target) return res.status(404).json({ message: "User not found" });
+
+    const [organizedEventsStats] = await db
+      .select({
+        eventsCreated: sql`count(*)`.mapWith(Number),
+        upcomingEvents: sql`sum(case when coalesce(${events.end_date}, ${events.date}) >= now() then 1 else 0 end)`.mapWith(Number),
+        lastOrganizedEventDate: sql`max(${events.date})`,
+      })
+      .from(events)
+      .where(eq(events.organizer_id, id));
+
+    const [participantsOnEventsStats] = await db
+      .select({
+        participantsOnOrganizedEvents: sql`count(${inscriptions.id})`.mapWith(Number),
+      })
+      .from(inscriptions)
+      .innerJoin(events, eq(inscriptions.event_id, events.id))
+      .where(eq(events.organizer_id, id));
+
+    const [revenueOnEventsStats] = await db
+      .select({
+        paidTransactionsOnOrganizedEvents: sql`count(${payments.id})`.mapWith(Number),
+        revenueOnOrganizedEvents: sql`coalesce(sum(${payments.amount}), 0)`,
+      })
+      .from(payments)
+      .innerJoin(events, eq(payments.event_id, events.id))
+      .where(and(eq(events.organizer_id, id), eq(payments.status, "paid")));
+
+    const [registrationStats] = await db
+      .select({
+        registrations: sql`count(${inscriptions.id})`.mapWith(Number),
+        confirmedRegistrations: sql`sum(case when ${inscriptions.status} = 'confirmed' then 1 else 0 end)`.mapWith(Number),
+        pendingRegistrations: sql`sum(case when ${inscriptions.status} = 'pending' then 1 else 0 end)`.mapWith(Number),
+      })
+      .from(inscriptions)
+      .where(eq(inscriptions.user_id, id));
+
+    const [paymentStats] = await db
+      .select({
+        payments: sql`count(${payments.id})`.mapWith(Number),
+        paidPayments: sql`sum(case when ${payments.status} = 'paid' then 1 else 0 end)`.mapWith(Number),
+        pendingPayments: sql`sum(case when ${payments.status} = 'pending' then 1 else 0 end)`.mapWith(Number),
+        totalAmountPaid: sql`coalesce(sum(case when ${payments.status} = 'paid' then ${payments.amount} else 0 end), 0)`,
+      })
+      .from(payments)
+      .where(eq(payments.user_id, id));
+
+    const recentOrganizedEvents = await db
+      .select({
+        id: events.id,
+        title: events.title,
+        date: events.date,
+        end_date: events.end_date,
+        participantsCount: sql`count(${inscriptions.id})`.mapWith(Number),
+      })
+      .from(events)
+      .leftJoin(inscriptions, eq(inscriptions.event_id, events.id))
+      .where(eq(events.organizer_id, id))
+      .groupBy(events.id, events.title, events.date, events.end_date)
+      .orderBy(desc(events.date))
+      .limit(5);
+
+    res.json({
+      user: target,
+      stats: {
+        eventsCreated: organizedEventsStats?.eventsCreated ?? 0,
+        upcomingEvents: organizedEventsStats?.upcomingEvents ?? 0,
+        lastOrganizedEventDate: organizedEventsStats?.lastOrganizedEventDate ?? null,
+        participantsOnOrganizedEvents: participantsOnEventsStats?.participantsOnOrganizedEvents ?? 0,
+        paidTransactionsOnOrganizedEvents: revenueOnEventsStats?.paidTransactionsOnOrganizedEvents ?? 0,
+        revenueOnOrganizedEvents: toNumber(revenueOnEventsStats?.revenueOnOrganizedEvents),
+        registrations: registrationStats?.registrations ?? 0,
+        confirmedRegistrations: registrationStats?.confirmedRegistrations ?? 0,
+        pendingRegistrations: registrationStats?.pendingRegistrations ?? 0,
+        payments: paymentStats?.payments ?? 0,
+        paidPayments: paymentStats?.paidPayments ?? 0,
+        pendingPayments: paymentStats?.pendingPayments ?? 0,
+        totalAmountPaid: toNumber(paymentStats?.totalAmountPaid),
+      },
+      recentOrganizedEvents,
+    });
   } catch (err) {
     next(err);
   }

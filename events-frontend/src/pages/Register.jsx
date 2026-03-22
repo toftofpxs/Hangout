@@ -25,8 +25,8 @@ export default function Register() {
   }
 
   return (
-    <div className="max-w-md mx-auto bg-white p-6 rounded shadow">
-      <h2 className="text-xl font-bold mb-4">Inscription</h2>
+    <div className="max-w-md mx-auto surface-section p-4 sm:p-6">
+      <h2 className="text-xl sm:text-2xl font-bold mb-4">Inscription</h2>
       <form onSubmit={submit} className="flex flex-col gap-3">
         <input
           value={name}
@@ -52,7 +52,7 @@ export default function Register() {
           minLength={6}
           required
         />
-        <button className="mt-2 bg-green-600 text-white px-4 py-2 rounded">S'inscrire</button>
+        <button className="mt-2 w-full bg-green-600 text-white px-4 py-2 rounded">S'inscrire</button>
       </form>
     </div>
   )

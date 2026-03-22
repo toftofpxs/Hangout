@@ -128,7 +128,7 @@ export default function EventCard({ event, isInscrit, onChanged }) {
       <div className="mb-3">
         <Link
           to={`/events/${event.id}`}
-          className="inline-flex bg-gray-900 text-white px-4 py-2 rounded hover:bg-black"
+          className="inline-flex w-full sm:w-auto justify-center bg-gray-900 text-white px-4 py-2 rounded hover:bg-black"
         >
           Voir l'événement
         </Link>
@@ -139,7 +139,7 @@ export default function EventCard({ event, isInscrit, onChanged }) {
           <button
             type="button"
             onClick={handleAddToCart}
-            className={`px-4 py-2 rounded border ${inCart ? 'border-emerald-600 text-emerald-700 bg-emerald-50' : 'border-slate-300 text-slate-700 hover:bg-slate-100'}`}
+            className={`w-full sm:w-auto px-4 py-2 rounded border ${inCart ? 'border-emerald-600 text-emerald-700 bg-emerald-50' : 'border-slate-300 text-slate-700 hover:bg-slate-100'}`}
           >
             {inCart ? 'Déjà dans le panier' : 'Ajouter au panier'}
           </button>
@@ -152,7 +152,7 @@ export default function EventCard({ event, isInscrit, onChanged }) {
             <button
               onClick={handleDesinscription}
               disabled={busy}
-              className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 disabled:opacity-60"
+              className="w-full sm:w-auto bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 disabled:opacity-60"
             >
               Se désinscrire
             </button>
@@ -160,7 +160,7 @@ export default function EventCard({ event, isInscrit, onChanged }) {
             <button
               onClick={handleInscription}
               disabled={busy}
-              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-60"
+              className="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-60"
             >
               S’inscrire
             </button>

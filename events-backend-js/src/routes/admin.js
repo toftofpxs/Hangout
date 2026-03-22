@@ -4,6 +4,7 @@ import { requireRole } from "../middleware/roles.js";
 import {
 	listEventsSummary,
 	listUsers,
+	getUserStats,
 	promoteUser,
 	demoteUser,
 	updateUser,
@@ -16,6 +17,7 @@ router.get("/events-summary", authenticateToken, requireRole('admin', 'super_use
 
 // Users management
 router.get('/users', authenticateToken, requireRole('admin', 'super_user'), listUsers);
+router.get('/users/:id/stats', authenticateToken, requireRole('admin', 'super_user'), getUserStats);
 router.post('/users/:id/promote', authenticateToken, requireRole('admin', 'super_user'), promoteUser);
 router.post('/users/:id/demote', authenticateToken, requireRole('admin', 'super_user'), demoteUser);
 router.put('/users/:id', authenticateToken, requireRole('admin', 'super_user'), updateUser);

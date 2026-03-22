@@ -87,8 +87,8 @@ export default function Organizer(){
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
-      <h1 className="text-3xl font-bold mb-8">Mes événements</h1>
+    <div className="px-0 sm:px-2 py-4 sm:py-6 max-w-6xl mx-auto">
+      <h1 className="text-2xl sm:text-3xl font-bold mb-6 sm:mb-8">Mes événements</h1>
       
       {error && (
         <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
@@ -169,7 +169,7 @@ export default function Organizer(){
                     <p className="text-xs text-gray-400 mt-2">{event.photos.length} photo(s)</p>
                   )}
                   
-                  <div className="flex gap-2 mt-4">
+                  <div className="flex flex-col sm:flex-row gap-2 mt-4">
                     <button
                       onClick={(e) => {
                         e.stopPropagation()

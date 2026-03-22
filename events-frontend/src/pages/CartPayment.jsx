@@ -118,12 +118,12 @@ export default function CartPayment() {
     }
   }
 
-  if (loading) return <div className="max-w-4xl mx-auto p-6">Chargement...</div>
+  if (loading) return <div className="max-w-4xl mx-auto px-3 sm:px-4 py-6">Chargement...</div>
 
   if (!items.length) {
     return (
-      <div className="max-w-3xl mx-auto surface-section p-6 text-center">
-        <h1 className="text-3xl font-bold">Paiement du panier</h1>
+      <div className="max-w-3xl mx-auto surface-section p-4 sm:p-6 text-center">
+        <h1 className="text-2xl sm:text-3xl font-bold">Paiement du panier</h1>
         <p className="mt-4 text-slate-600">Votre panier est vide.</p>
         <Link to="/cart" className="mt-6 inline-flex rounded-lg bg-cyan-600 px-4 py-2 text-white hover:bg-cyan-700">
           Retour au panier
@@ -133,12 +133,12 @@ export default function CartPayment() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-      <section className="surface-section p-6">
+    <div className="max-w-6xl mx-auto grid gap-4 sm:gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+      <section className="surface-section p-4 sm:p-6">
         <Link to="/cart" className="text-sm text-slate-600 hover:text-slate-900">
           Retour au panier
         </Link>
-        <h1 className="text-3xl font-bold mt-3">Paiement du panier</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold mt-3">Paiement du panier</h1>
         <p className="mt-2 text-slate-600">Réglez tous vos événements en une seule fois, puis vos inscriptions seront finalisées automatiquement.</p>
 
         <form onSubmit={submit} className="mt-6 space-y-4">
@@ -158,14 +158,14 @@ export default function CartPayment() {
             <input
               value={form.card_number}
               onChange={(e) => updateField('card_number', e.target.value)}
-              className="w-full border p-3 rounded-lg tracking-[0.25em]"
+              className="w-full border p-3 rounded-lg tracking-[0.12em] sm:tracking-[0.25em]"
               placeholder="4242 4242 4242 4242"
               inputMode="numeric"
               required={payableItems.length > 0}
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">Expiration</label>
               <input
@@ -203,7 +203,7 @@ export default function CartPayment() {
         </form>
       </section>
 
-      <aside className="surface-section p-6">
+      <aside className="surface-section p-4 sm:p-6">
         <h2 className="text-xl font-semibold">Récapitulatif du panier</h2>
         <div className="mt-4 space-y-4 text-sm text-slate-700">
           {items.map((item) => {

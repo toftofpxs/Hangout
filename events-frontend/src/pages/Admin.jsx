@@ -44,6 +44,10 @@ export default function Admin() {
   const [userSearch, setUserSearch] = useState('')
   const [userRoleFilter, setUserRoleFilter] = useState('all')
   const [activeSuggestions, setActiveSuggestions] = useState(null)
+  const [selectedUserId, setSelectedUserId] = useState(null)
+  const [selectedUserDetails, setSelectedUserDetails] = useState(null)
+  const [userStatsLoading, setUserStatsLoading] = useState(false)
+  const [userStatsError, setUserStatsError] = useState('')
 
   const [editingId, setEditingId] = useState(null)
   const [saving, setSaving] = useState(false)
@@ -107,6 +111,46 @@ export default function Admin() {
 
   const getUserId = (target) => target?.id ?? target?._id
 
+  const openUserDetails = async (target) => {
+    const targetId = getUserId(target)
+    if (!targetId) return
+
+    setSelectedUserId(targetId)
+    setUserStatsError('')
+
+    try {
+      setUserStatsLoading(true)
+      const res = await api.get(`/admin/users/${targetId}/stats`)
+      setSelectedUserDetails(res.data || null)
+    } catch (err) {
+      console.error(err)
+      setSelectedUserDetails(null)
+      const message = err.response?.data?.message || 'Impossible de charger la fiche utilisateur.'
+      setUserStatsError(message)
+      toast.error(message)
+    } finally {
+      setUserStatsLoading(false)
+    }
+  }
+
+  const toggleUserDetails = async (target) => {
+    const targetId = getUserId(target)
+    if (!targetId) return
+
+    if (selectedUserId === targetId) {
+      closeUserDetails()
+      return
+    }
+
+    await openUserDetails(target)
+  }
+
+  const closeUserDetails = () => {
+    setSelectedUserId(null)
+    setSelectedUserDetails(null)
+    setUserStatsError('')
+  }
+
   const startEditUser = (target) => {
     setEditingUserId(getUserId(target))
     setUserForm({
@@ -131,6 +175,9 @@ export default function Admin() {
 
       setUsers((list) => list.map((u) => (getUserId(u) === targetId ? res.data : u)))
       cancelEditUser()
+      if (selectedUserId === targetId) {
+        await openUserDetails({ id: targetId })
+      }
       toast.success('Utilisateur mis à jour.')
 
       // Si je me modifie moi-même, on garde le localStorage synchronisé
@@ -158,6 +205,9 @@ export default function Admin() {
       setDeletingUserId(targetId)
       await api.delete(`/admin/users/${targetId}`)
       setUsers((list) => list.filter((u) => getUserId(u) !== targetId))
+      if (selectedUserId === targetId) {
+        closeUserDetails()
+      }
       toast.success('Utilisateur banni/supprimé.')
     } catch (err) {
       console.error(err)
@@ -296,7 +346,7 @@ export default function Admin() {
   if (error) return <div className="p-6 text-red-600">{error}</div>
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8 space-y-10">
+    <div className="max-w-6xl mx-auto px-0 sm:px-4 py-4 sm:py-8 space-y-8 sm:space-y-10">
       <h1 className="text-2xl font-bold">Espace admin</h1>
 
       {/* Utilisateurs */}
@@ -361,71 +411,161 @@ export default function Admin() {
 
         <ul className="divide-y">
           {filteredUsers.map((u) => (
-            <li key={u.id ?? u._id} className="py-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-              {editingUserId === getUserId(u) ? (
-                <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-2">
-                  <input
-                    value={userForm.name}
-                    onChange={(e) => setUserForm((s) => ({ ...s, name: e.target.value }))}
-                    className="border p-2 rounded"
-                    placeholder="Nom"
-                  />
-                  <select
-                    value={userForm.role}
-                    onChange={(e) => setUserForm((s) => ({ ...s, role: e.target.value }))}
-                    className="border p-2 rounded"
-                  >
-                    {availableRoles.map((roleValue) => (
-                      <option key={roleValue} value={roleValue}>{roleLabel(roleValue)}</option>
-                    ))}
-                  </select>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => saveUser(getUserId(u))}
-                      disabled={savingUserId === getUserId(u)}
-                      className="px-3 py-2 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-60"
+            <React.Fragment key={u.id ?? u._id}>
+              <li
+                className={`py-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between ${
+                  selectedUserId === getUserId(u) ? 'bg-cyan-50/70' : ''
+                }`}
+              >
+                {editingUserId === getUserId(u) ? (
+                  <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-2">
+                    <input
+                      value={userForm.name}
+                      onChange={(e) => setUserForm((s) => ({ ...s, name: e.target.value }))}
+                      className="border p-2 rounded"
+                      placeholder="Nom"
+                    />
+                    <select
+                      value={userForm.role}
+                      onChange={(e) => setUserForm((s) => ({ ...s, role: e.target.value }))}
+                      className="border p-2 rounded"
                     >
-                      {savingUserId === getUserId(u) ? 'Enregistrement…' : 'Valider'}
-                    </button>
-                    <button
-                      onClick={cancelEditUser}
-                      className="px-3 py-2 rounded bg-gray-200 hover:bg-gray-300"
-                    >
-                      Annuler
-                    </button>
+                      {availableRoles.map((roleValue) => (
+                        <option key={roleValue} value={roleValue}>{roleLabel(roleValue)}</option>
+                      ))}
+                    </select>
+                    <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+                      <button
+                        onClick={() => saveUser(getUserId(u))}
+                        disabled={savingUserId === getUserId(u)}
+                        className="px-3 py-2 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-60"
+                      >
+                        {savingUserId === getUserId(u) ? 'Enregistrement…' : 'Valider'}
+                      </button>
+                      <button
+                        onClick={cancelEditUser}
+                        className="px-3 py-2 rounded bg-gray-200 hover:bg-gray-300"
+                      >
+                        Annuler
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <>
-                  <div>
-                    <span className="font-medium">{u.name}</span>{' '}
-                    <span className="text-gray-600">— {u.email}</span>{' '}
-                    <span className="text-xs px-2 py-1 rounded bg-gray-200">{roleLabel(u.role)}</span>
+                ) : (
+                  <>
+                    <div className="flex-1 min-w-0">
+                      <button
+                        type="button"
+                        onClick={() => toggleUserDetails(u)}
+                        className="text-left hover:opacity-90"
+                      >
+                        <span className="font-medium">{u.name}</span>{' '}
+                        <span className="text-gray-600">— {u.email}</span>{' '}
+                        <span className="text-xs px-2 py-1 rounded bg-gray-200">{roleLabel(u.role)}</span>
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={() => toggleUserDetails(u)}
+                        className="px-3 py-1 rounded bg-cyan-600 text-white hover:bg-cyan-700 w-full sm:w-auto"
+                      >
+                        {userStatsLoading && selectedUserId === getUserId(u)
+                          ? 'Chargement…'
+                          : selectedUserId === getUserId(u)
+                            ? 'Fermer fiche'
+                            : 'Voir fiche'}
+                      </button>
+                      <button
+                        onClick={() => startEditUser(u)}
+                        className="px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 w-full sm:w-auto"
+                      >
+                        Modifier
+                      </button>
+                      <button
+                        onClick={() => banUser(u)}
+                        disabled={deletingUserId === getUserId(u)}
+                        className="px-3 py-1 rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-60 w-full sm:w-auto"
+                      >
+                        {deletingUserId === getUserId(u) ? 'Bannissement…' : 'Bannir'}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </li>
+
+              {selectedUserId === getUserId(u) && (
+                <li className="py-3">
+                  <div className="rounded-lg border bg-white p-4 space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="text-lg font-semibold">Fiche utilisateur</h3>
+                      <button
+                        type="button"
+                        onClick={closeUserDetails}
+                        className="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300"
+                      >
+                        Fermer
+                      </button>
+                    </div>
+
+                    {userStatsLoading ? (
+                      <p className="text-sm text-gray-600">Chargement des statistiques…</p>
+                    ) : userStatsError ? (
+                      <p className="text-sm text-red-600">{userStatsError}</p>
+                    ) : selectedUserDetails?.user ? (
+                      <>
+                        <div className="grid gap-2 md:grid-cols-2">
+                          <p><span className="font-medium">Nom :</span> {selectedUserDetails.user.name}</p>
+                          <p><span className="font-medium">Email :</span> {selectedUserDetails.user.email}</p>
+                          <p><span className="font-medium">Rôle :</span> {roleLabel(selectedUserDetails.user.role)}</p>
+                          <p>
+                            <span className="font-medium">Création du compte :</span>{' '}
+                            {formatDateTime(selectedUserDetails.user.created_at) || 'Inconnue'}
+                          </p>
+                        </div>
+
+                        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 pt-1">
+                          <StatCard label="Événements créés" value={selectedUserDetails.stats?.eventsCreated} />
+                          <StatCard label="Événements à venir" value={selectedUserDetails.stats?.upcomingEvents} />
+                          <StatCard label="Dernier événement organisé" value={formatDateTime(selectedUserDetails.stats?.lastOrganizedEventDate) || 'Aucun'} />
+                          <StatCard label="Participants sur ses événements" value={selectedUserDetails.stats?.participantsOnOrganizedEvents} />
+                          <StatCard label="Transactions payées (ses événements)" value={selectedUserDetails.stats?.paidTransactionsOnOrganizedEvents} />
+                          <StatCard label="Revenu généré (ses événements)" value={formatCurrency(selectedUserDetails.stats?.revenueOnOrganizedEvents)} />
+                          <StatCard label="Inscriptions (comme participant)" value={selectedUserDetails.stats?.registrations} />
+                          <StatCard label="Inscriptions confirmées" value={selectedUserDetails.stats?.confirmedRegistrations} />
+                          <StatCard label="Inscriptions en attente" value={selectedUserDetails.stats?.pendingRegistrations} />
+                          <StatCard label="Paiements effectués" value={selectedUserDetails.stats?.payments} />
+                          <StatCard label="Paiements payés" value={selectedUserDetails.stats?.paidPayments} />
+                          <StatCard label="Montant total payé" value={formatCurrency(selectedUserDetails.stats?.totalAmountPaid)} />
+                        </div>
+
+                        <div>
+                          <h4 className="font-medium mb-2">Derniers événements organisés</h4>
+                          {selectedUserDetails.recentOrganizedEvents?.length ? (
+                            <ul className="space-y-1 text-sm text-gray-700">
+                              {selectedUserDetails.recentOrganizedEvents.map((event) => (
+                                <li key={event.id}>
+                                  {event.title} — {formatDateRange(event.date, event.end_date)} — {Number(event.participantsCount || 0)} participant(s)
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="text-sm text-gray-500">Aucun événement organisé.</p>
+                          )}
+                        </div>
+                      </>
+                    ) : (
+                      <p className="text-sm text-gray-500">Aucune donnée disponible.</p>
+                    )}
                   </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => startEditUser(u)}
-                      className="px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700"
-                    >
-                      Modifier
-                    </button>
-                    <button
-                      onClick={() => banUser(u)}
-                      disabled={deletingUserId === getUserId(u)}
-                      className="px-3 py-1 rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-60"
-                    >
-                      {deletingUserId === getUserId(u) ? 'Bannissement…' : 'Bannir'}
-                    </button>
-                  </div>
-                </>
+                </li>
               )}
-            </li>
+            </React.Fragment>
           ))}
         </ul>
 
         {filteredUsers.length === 0 && (
           <p className="text-sm text-gray-500 pt-4">Aucun utilisateur ne correspond aux filtres.</p>
         )}
+
       </section>
 
       {/* Événements */}
@@ -513,7 +653,7 @@ export default function Admin() {
                         )}
                       </div>
 
-                      <div className="flex gap-2">
+                      <div className="flex flex-col sm:flex-row gap-2">
                         <button
                           onClick={() => startEdit(ev)}
                           className="px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700"
@@ -672,6 +812,15 @@ function getHighlightedRange(value, searchValue) {
   return { start, end }
 }
 
+function StatCard({ label, value }) {
+  return (
+    <div className="rounded border bg-gray-50 p-3">
+      <p className="text-xs uppercase tracking-wide text-gray-500">{label}</p>
+      <p className="text-lg font-semibold text-gray-900">{value ?? 0}</p>
+    </div>
+  )
+}
+
 function normalizeSearchTextForHighlight(value) {
   return String(value || '')
     .toLowerCase()
@@ -683,6 +832,7 @@ function normalizeSearchTextForHighlight(value) {
 // format pour affichage (fr-FR)
 function formatDateTime(value) {
   try {
+    if (value == null || value === '') return ''
     const d = value instanceof Date ? value : new Date(value)
     if (Number.isNaN(d.getTime())) return ''
     return d.toLocaleString('fr-FR')
@@ -697,4 +847,9 @@ function formatDateRange(startValue, endValue) {
   if (!start) return ''
   if (!end || start === end) return start
   return `${start} -> ${end}`
+}
+
+function formatCurrency(value) {
+  const amount = Number(value || 0)
+  return amount.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })
 }

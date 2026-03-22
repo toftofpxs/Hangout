@@ -172,7 +172,7 @@ export default function Dashboard() {
   if (loading) return <p className="p-6">Chargement…</p>
 
   return (
-    <div className="max-w-5xl mx-auto mt-8 px-4 space-y-10">
+    <div className="max-w-5xl mx-auto mt-4 sm:mt-8 px-0 sm:px-4 space-y-8 sm:space-y-10">
       <h1 className="text-2xl font-bold">Bonjour, {user?.name}</h1>
 
       <section className="surface-section p-4">
@@ -201,7 +201,7 @@ export default function Dashboard() {
         {inscriptions.enCours?.length ? (
           <ul className="space-y-2">
             {inscriptions.enCours.map((i) => (
-              <li key={i.id || i._id} className="surface-card p-3 flex justify-between items-center">
+              <li key={i.id || i._id} className="surface-card p-3 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
                 <div>
                   <strong>{i.event?.title}</strong>{' '}
                   <span className="text-sm text-gray-600">— {new Date(i.event?.date).toLocaleDateString('fr-FR')}</span>
@@ -223,7 +223,7 @@ export default function Dashboard() {
         {inscriptions.passes?.length ? (
           <ul className="space-y-2">
             {inscriptions.passes.map((i) => (
-              <li key={i.id || i._id} className="surface-card p-3 flex justify-between items-center text-gray-700">
+              <li key={i.id || i._id} className="surface-card p-3 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 text-gray-700">
                 <div>
                   <strong>{i.event?.title}</strong>{' '}
                   <span className="text-sm text-gray-600">— {new Date(i.event?.date).toLocaleDateString('fr-FR')}</span>
@@ -240,11 +240,11 @@ export default function Dashboard() {
       {/* ——— Mes événements (désormais pour TOUT user connecté) ——— */}
       {user && (
         <section className="surface-section p-4">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
             <h2 className="text-xl font-semibold">Mes événements</h2>
             <button
               onClick={() => setShowCreate((s) => !s)}
-              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 w-full sm:w-auto"
             >
               {showCreate ? 'Fermer' : 'Créer un événement'}
             </button>

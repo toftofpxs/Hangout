@@ -24,11 +24,11 @@ export function ToastProvider({ children }) {
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <div className="fixed top-4 right-4 z-[100] flex flex-col gap-2 pointer-events-none">
+      <div className="fixed top-3 right-3 left-3 sm:top-4 sm:right-4 sm:left-auto z-[100] flex flex-col gap-2 pointer-events-none">
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className={`min-w-64 max-w-80 px-4 py-3 rounded shadow-lg text-white pointer-events-auto ${getToastClassName(toast.type)}`}
+            className={`w-full sm:min-w-64 sm:max-w-80 px-4 py-3 rounded shadow-lg text-white pointer-events-auto ${getToastClassName(toast.type)}`}
             role="status"
             aria-live="polite"
           >

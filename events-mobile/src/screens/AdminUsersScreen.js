@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import API from '../api/axios';
 import ScreenBackground from '../components/ScreenBackground';
 import { useAuth } from '../context/AuthContext';
+import { getAdminUserStats } from '../services/adminUsersService';
 import { colors, fonts, shadows } from '../theme';
 
 const USER_RULE_TEXT = 'Règle : seul le super_user peut bannir un admin/super_user.';
@@ -59,6 +60,10 @@ export default function AdminUsersScreen() {
   const [userSearch, setUserSearch] = useState('');
   const [userRoleFilter, setUserRoleFilter] = useState('all');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState(null);
+  const [selectedUserDetails, setSelectedUserDetails] = useState(null);
+  const [userDetailsLoading, setUserDetailsLoading] = useState(false);
+  const [userDetailsError, setUserDetailsError] = useState(null);
 
   const isAdmin = userData?.role === 'admin' || userData?.role === 'super_user';
   const canAssignSuperUser = userData?.role === 'super_user';
@@ -164,6 +169,10 @@ export default function AdminUsersScreen() {
       )));
       cancelEditUser();
 
+      if (Number(selectedUserId) === Number(targetId)) {
+        await loadUserDetails(targetId);
+      }
+
       if (Number(userData?.id) === Number(targetId)) {
         await updateUserData(updatedUser);
       }
@@ -194,6 +203,10 @@ export default function AdminUsersScreen() {
               await API.delete(`/admin/users/${target.id}`);
               setUsers((currentUsers) => currentUsers.filter((user) => user.id !== target.id));
 
+              if (Number(selectedUserId) === Number(target.id)) {
+                closeUserDetails();
+              }
+
               if (Number(userData?.id) === Number(target.id)) {
                 await logout();
                 return;
@@ -212,6 +225,44 @@ export default function AdminUsersScreen() {
         },
       ]
     );
+  };
+
+  const closeUserDetails = () => {
+    setSelectedUserId(null);
+    setSelectedUserDetails(null);
+    setUserDetailsError(null);
+    setUserDetailsLoading(false);
+  };
+
+  const loadUserDetails = async (targetId) => {
+    if (!targetId) return;
+
+    setSelectedUserId(targetId);
+    setSelectedUserDetails(null);
+    setUserDetailsError(null);
+    setUserDetailsLoading(true);
+
+    try {
+      const payload = await getAdminUserStats(targetId);
+      setSelectedUserDetails(payload || null);
+    } catch (err) {
+      const message = err.response?.data?.message || 'Impossible de charger la fiche utilisateur.';
+      setUserDetailsError(message);
+      Alert.alert('Erreur', message);
+    } finally {
+      setUserDetailsLoading(false);
+    }
+  };
+
+  const toggleUserDetails = async (targetId) => {
+    if (!targetId) return;
+
+    if (Number(selectedUserId) === Number(targetId)) {
+      closeUserDetails();
+      return;
+    }
+
+    await loadUserDetails(targetId);
   };
 
   if (!isAdmin) {
@@ -396,6 +447,18 @@ export default function AdminUsersScreen() {
 
                   <View style={styles.actionsRow}>
                     <TouchableOpacity
+                      style={styles.secondaryButton}
+                      onPress={() => toggleUserDetails(user.id)}
+                    >
+                      <Text style={styles.secondaryButtonText}>
+                        {userDetailsLoading && Number(selectedUserId) === Number(user.id)
+                          ? 'Chargement...'
+                          : Number(selectedUserId) === Number(user.id)
+                            ? 'Fermer fiche'
+                            : 'Voir fiche'}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
                       style={styles.primaryButtonInline}
                       onPress={() => startEditUser(user)}
                     >
@@ -411,6 +474,80 @@ export default function AdminUsersScreen() {
                       </Text>
                     </TouchableOpacity>
                   </View>
+
+                  {Number(selectedUserId) === Number(user.id) ? (
+                    <View style={styles.detailsPanel}>
+                      <View style={styles.detailsHeader}>
+                        <Text style={styles.detailsTitle}>Fiche utilisateur</Text>
+                        <TouchableOpacity style={styles.detailCloseButton} onPress={closeUserDetails}>
+                          <Text style={styles.detailCloseButtonText}>Fermer</Text>
+                        </TouchableOpacity>
+                      </View>
+
+                      {userDetailsLoading ? (
+                        <Text style={styles.helperText}>Chargement des statistiques...</Text>
+                      ) : userDetailsError ? (
+                        <Text style={styles.errorInlineText}>{userDetailsError}</Text>
+                      ) : selectedUserDetails?.user ? (
+                        <>
+                          <View style={styles.identityPanel}>
+                            <Text style={styles.identityText}>Nom : {selectedUserDetails.user.name || '-'}</Text>
+                            <Text style={styles.identityText}>Email : {selectedUserDetails.user.email || '-'}</Text>
+                            <Text style={styles.identityText}>Rôle : {roleLabel(selectedUserDetails.user.role)}</Text>
+                            <Text style={styles.identityText}>
+                              Date de création : {formatDateTimeSafe(selectedUserDetails.user.created_at) || 'Date inconnue'}
+                            </Text>
+                          </View>
+
+                          <View style={styles.metricsGrid}>
+                            <StatItem label="Événements créés" value={selectedUserDetails.stats?.eventsCreated} />
+                            <StatItem label="Événements à venir" value={selectedUserDetails.stats?.upcomingEvents} />
+                            <StatItem
+                              label="Dernier événement organisé"
+                              value={formatDateTimeSafe(selectedUserDetails.stats?.lastOrganizedEventDate) || 'Pas d\'événement créé'}
+                            />
+                            <StatItem
+                              label="Participants sur ses événements"
+                              value={selectedUserDetails.stats?.participantsOnOrganizedEvents}
+                            />
+                            <StatItem
+                              label="Transactions payées"
+                              value={selectedUserDetails.stats?.paidTransactionsOnOrganizedEvents}
+                            />
+                            <StatItem
+                              label="Revenu généré"
+                              value={formatCurrency(selectedUserDetails.stats?.revenueOnOrganizedEvents)}
+                            />
+                            <StatItem label="Inscriptions" value={selectedUserDetails.stats?.registrations} />
+                            <StatItem label="Inscriptions confirmées" value={selectedUserDetails.stats?.confirmedRegistrations} />
+                            <StatItem label="Inscriptions en attente" value={selectedUserDetails.stats?.pendingRegistrations} />
+                            <StatItem label="Paiements" value={selectedUserDetails.stats?.payments} />
+                            <StatItem label="Paiements payés" value={selectedUserDetails.stats?.paidPayments} />
+                            <StatItem
+                              label="Montant total payé"
+                              value={formatCurrency(selectedUserDetails.stats?.totalAmountPaid)}
+                            />
+                          </View>
+
+                          <View style={styles.recentPanel}>
+                            <Text style={styles.recentTitle}>Derniers événements organisés</Text>
+                            {Array.isArray(selectedUserDetails.recentOrganizedEvents)
+                              && selectedUserDetails.recentOrganizedEvents.length ? (
+                                selectedUserDetails.recentOrganizedEvents.map((event) => (
+                                  <Text key={event.id} style={styles.recentItem}>
+                                    {event.title || 'Événement'} - {formatDateRangeSafe(event.date, event.end_date)} - {Number(event.participantsCount || 0)} participant(s)
+                                  </Text>
+                                ))
+                              ) : (
+                                <Text style={styles.helperText}>Aucun événement organisé.</Text>
+                              )}
+                          </View>
+                        </>
+                      ) : (
+                        <Text style={styles.helperText}>Aucune donnée disponible.</Text>
+                      )}
+                    </View>
+                  ) : null}
                 </>
               )}
             </View>
@@ -534,6 +671,38 @@ function normalizeSearchTextForHighlight(value) {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[_-]+/g, ' ');
+}
+
+function StatItem({ label, value }) {
+  return (
+    <View style={styles.metricCard}>
+      <Text style={styles.metricLabel}>{label}</Text>
+      <Text style={styles.metricValue}>{value ?? 0}</Text>
+    </View>
+  );
+}
+
+function formatDateTimeSafe(value) {
+  if (value == null || value === '') return '';
+
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+
+  return date.toLocaleString('fr-FR');
+}
+
+function formatDateRangeSafe(startValue, endValue) {
+  const start = formatDateTimeSafe(startValue);
+  const end = formatDateTimeSafe(endValue || startValue);
+
+  if (!start) return 'Date inconnue';
+  if (!end || start === end) return start;
+  return `${start} -> ${end}`;
+}
+
+function formatCurrency(value) {
+  const amount = Number(value || 0);
+  return amount.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
 }
 
 const styles = StyleSheet.create({
@@ -829,5 +998,101 @@ const styles = StyleSheet.create({
   emptyText: {
     color: colors.muted,
     textAlign: 'center',
+  },
+  detailsPanel: {
+    marginTop: 6,
+    backgroundColor: colors.panel,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 14,
+    padding: 12,
+    gap: 10,
+  },
+  detailsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  detailsTitle: {
+    color: colors.ink,
+    fontWeight: '800',
+    fontSize: 16,
+    fontFamily: fonts.heading,
+  },
+  detailCloseButton: {
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.panelStrong,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  detailCloseButtonText: {
+    color: colors.ink,
+    fontWeight: '700',
+  },
+  errorInlineText: {
+    color: colors.danger,
+    fontSize: 13,
+  },
+  identityPanel: {
+    backgroundColor: colors.panelStrong,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 12,
+    padding: 10,
+    gap: 6,
+  },
+  identityText: {
+    color: colors.inkSoft,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  metricsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  metricCard: {
+    minWidth: '48%',
+    flexGrow: 1,
+    backgroundColor: colors.panelStrong,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 12,
+    padding: 10,
+  },
+  metricLabel: {
+    color: colors.muted,
+    fontSize: 11,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    fontWeight: '700',
+  },
+  metricValue: {
+    marginTop: 6,
+    color: colors.ink,
+    fontSize: 15,
+    fontWeight: '800',
+    fontFamily: fonts.heading,
+  },
+  recentPanel: {
+    backgroundColor: colors.panelStrong,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 12,
+    padding: 10,
+    gap: 6,
+  },
+  recentTitle: {
+    color: colors.ink,
+    fontWeight: '800',
+    fontFamily: fonts.heading,
+  },
+  recentItem: {
+    color: colors.inkSoft,
+    fontSize: 13,
+    lineHeight: 18,
   },
 });

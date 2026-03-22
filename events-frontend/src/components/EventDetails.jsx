@@ -158,7 +158,7 @@ export default function EventDetails() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto p-6 surface-section mt-6">
+    <div className="max-w-3xl mx-auto p-4 sm:p-6 surface-section mt-4 sm:mt-6">
       <div className="mb-4">
         <Link
           to="/"
@@ -172,7 +172,7 @@ export default function EventDetails() {
         </Link>
       </div>
 
-      <h1 className="text-3xl font-bold mb-2">{event.title}</h1>
+      <h1 className="text-2xl sm:text-3xl font-bold mb-2">{event.title}</h1>
       <p className="text-sm text-gray-600">
         📍 {event.location} — 📅 {formatDateRange(event.date, event.end_date)}
       </p>
@@ -180,7 +180,7 @@ export default function EventDetails() {
       {eventImages.length > 0 && (
         <div className="mt-5">
           <p className="text-sm font-semibold text-gray-700 mb-2">Images de l'événement</p>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
             {eventImages.map((imgSrc, index) => (
               <button
                 key={`${imgSrc}-${index}`}
@@ -207,12 +207,12 @@ export default function EventDetails() {
         </p>
       )}
 
-      <div className="mt-6">
+      <div className="mt-6 flex flex-wrap gap-3 items-start">
         {!expired && !inscrit && (
           <button
             type="button"
             onClick={handleAddToCart}
-            className={`mr-3 px-4 py-2 rounded border ${inCart ? 'border-emerald-600 text-emerald-700 bg-emerald-50' : 'border-slate-300 text-slate-700 hover:bg-slate-100'}`}
+            className={`w-full sm:w-auto px-4 py-2 rounded border ${inCart ? 'border-emerald-600 text-emerald-700 bg-emerald-50' : 'border-slate-300 text-slate-700 hover:bg-slate-100'}`}
           >
             {inCart ? 'Déjà dans le panier' : 'Ajouter au panier'}
           </button>
@@ -225,7 +225,7 @@ export default function EventDetails() {
             <button
               onClick={handleDesinscription}
               disabled={busy}
-              className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+              className="w-full sm:w-auto px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
             >
               Se désinscrire
             </button>
@@ -233,7 +233,7 @@ export default function EventDetails() {
             <button
               onClick={handleInscription}
               disabled={busy}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
             >
               S’inscrire
             </button>

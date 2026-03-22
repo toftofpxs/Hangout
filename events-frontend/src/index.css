@@ -110,3 +110,14 @@ button:active,
 .nav-link-active {
   color: #0e7490;
 }
+
+@media (max-width: 768px) {
+  body {
+    background-attachment: scroll;
+  }
+
+  .nav-link {
+    width: 100%;
+    padding: 0.35rem 0;
+  }
+}

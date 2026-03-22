@@ -48,8 +48,6 @@ pnpm-debug.log*
 .DS_Store
 Thumbs.db
 
-# Documentation folder (as requested)
-docs/
 
 # User-generated uploads (avoid committing private files)
 events-backend-js/uploads/

@@ -10,8 +10,8 @@ export default function Cart() {
 
   if (!items.length) {
     return (
-      <div className="max-w-3xl mx-auto surface-section p-6 text-center">
-        <h1 className="text-3xl font-bold">Mon panier</h1>
+      <div className="max-w-3xl mx-auto surface-section p-4 sm:p-6 text-center">
+        <h1 className="text-2xl sm:text-3xl font-bold">Mon panier</h1>
         <p className="mt-4 text-slate-600">Votre panier est vide.</p>
         <Link to="/" className="mt-6 inline-flex rounded-lg bg-cyan-600 px-4 py-2 text-white hover:bg-cyan-700">
           Voir les événements
@@ -21,9 +21,9 @@ export default function Cart() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-      <section className="surface-section p-6">
-        <h1 className="text-3xl font-bold">Mon panier</h1>
+    <div className="max-w-6xl mx-auto grid gap-4 sm:gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+      <section className="surface-section p-4 sm:p-6">
+        <h1 className="text-2xl sm:text-3xl font-bold">Mon panier</h1>
         <p className="mt-2 text-slate-600">Ajoutez plusieurs événements puis validez votre paiement en une seule fois.</p>
 
         <div className="mt-6 space-y-4">
@@ -34,8 +34,8 @@ export default function Cart() {
                 <p className="text-sm text-slate-600">{item.location || 'Lieu non précisé'} • {new Date(item.date).toLocaleString('fr-FR')}</p>
                 <p className="mt-2 text-sm text-slate-700">{Number(item.price || 0) > 0 ? `${Number(item.price).toFixed(2)} €` : 'Gratuit'}</p>
               </div>
-              <div className="flex gap-2">
-                <Link to={`/events/${item.id}`} className="rounded-lg bg-slate-900 px-4 py-2 text-white hover:bg-black">
+              <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+                <Link to={`/events/${item.id}`} className="rounded-lg bg-slate-900 px-4 py-2 text-white hover:bg-black text-center">
                   Voir
                 </Link>
                 <button
@@ -51,7 +51,7 @@ export default function Cart() {
         </div>
       </section>
 
-      <aside className="surface-section p-6 h-fit">
+      <aside className="surface-section p-4 sm:p-6 h-fit">
         <h2 className="text-xl font-semibold">Récapitulatif</h2>
         <div className="mt-4 space-y-3 text-sm text-slate-700">
           <div className="flex items-center justify-between">

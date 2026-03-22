@@ -85,8 +85,8 @@ export default function Payment() {
     }
   }
 
-  if (loading) return <div className="max-w-3xl mx-auto p-6">Chargement...</div>
-  if (!event) return <div className="max-w-3xl mx-auto p-6">Événement introuvable.</div>
+  if (loading) return <div className="max-w-3xl mx-auto px-3 sm:px-4 py-6">Chargement...</div>
+  if (!event) return <div className="max-w-3xl mx-auto px-3 sm:px-4 py-6">Événement introuvable.</div>
 
   const price = Number(event.price || 0)
   const submitLabel = paymentStatus?.requiresPayment && !paymentStatus?.isPaid
@@ -94,12 +94,12 @@ export default function Payment() {
     : 'Finaliser mon inscription'
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-      <section className="surface-section p-6">
+    <div className="max-w-5xl mx-auto px-0 sm:px-1 py-4 sm:py-8 grid gap-4 sm:gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+      <section className="surface-section p-4 sm:p-6">
         <Link to={`/events/${event.id}`} className="text-sm text-slate-600 hover:text-slate-900">
           Retour à l'événement
         </Link>
-        <h1 className="text-3xl font-bold mt-3">Paiement de l'événement</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold mt-3">Paiement de l'événement</h1>
         <p className="mt-2 text-slate-600">Complète ce formulaire de paiement pour finaliser ton inscription.</p>
 
         <form onSubmit={submit} className="mt-6 space-y-4">
@@ -119,14 +119,14 @@ export default function Payment() {
             <input
               value={form.card_number}
               onChange={(e) => updateField('card_number', e.target.value)}
-              className="w-full border p-3 rounded-lg tracking-[0.25em]"
+              className="w-full border p-3 rounded-lg tracking-[0.12em] sm:tracking-[0.25em]"
               placeholder="4242 4242 4242 4242"
               inputMode="numeric"
               required
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">Expiration</label>
               <input
@@ -164,7 +164,7 @@ export default function Payment() {
         </form>
       </section>
 
-      <aside className="surface-section p-6">
+      <aside className="surface-section p-4 sm:p-6">
         <h2 className="text-xl font-semibold">Récapitulatif</h2>
         <div className="mt-4 space-y-3 text-sm text-slate-700">
           <div>
