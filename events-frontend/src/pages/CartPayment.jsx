@@ -190,7 +190,7 @@ export default function CartPayment() {
           </div>
 
           <div className="rounded-xl bg-slate-100 p-4 text-sm text-slate-700">
-            Une confirmation de paiement sera enregistrée pour l'ensemble du panier. Si SMTP est configuré côté backend, un email récapitulatif sera envoyé à {user?.email || 'votre adresse'}.
+            Une confirmation de paiement sera enregistrée pour l'ensemble du panier.
           </div>
 
           <button
