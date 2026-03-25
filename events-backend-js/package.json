@@ -5,6 +5,7 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
+    "db:import:schema": "node src/scripts/importSchema.js",
     "make:admin": "node -r dotenv/config src/scripts/makeAdmin.js",
     "test": "jest --detectOpenHandles",
     "test:watch": "jest --watch",
