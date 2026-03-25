@@ -6,6 +6,31 @@ import EventForm from '../components/EventForm'
 import { useToast } from '../contexts/ToastContext'
 import { useConfirm } from '../contexts/ConfirmContext'
 
+function PasswordField({ value, onChange, placeholder, minLength }) {
+  const [visible, setVisible] = useState(false)
+
+  return (
+    <div className="relative">
+      <input
+        type={visible ? 'text' : 'password'}
+        className="border p-2 pr-24 rounded w-full"
+        placeholder={placeholder}
+        value={value}
+        onChange={onChange}
+        minLength={minLength}
+        required
+      />
+      <button
+        type="button"
+        onClick={() => setVisible((state) => !state)}
+        className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-blue-700 hover:text-blue-900"
+      >
+        {visible ? 'Masquer' : 'Afficher'}
+      </button>
+    </div>
+  )
+}
+
 export default function Dashboard() {
   const { user, updateProfile } = useContext(AuthContext)
   const toast = useToast()
@@ -226,31 +251,23 @@ export default function Dashboard() {
           </form>
 
           <form onSubmit={handleChangePassword} className="flex flex-col gap-3">
-            <input
-              type="password"
-              className="border p-2 rounded w-full"
+            <PasswordField
               placeholder="Mot de passe actuel"
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
-              required
+              minLength={1}
             />
-            <input
-              type="password"
-              className="border p-2 rounded w-full"
+            <PasswordField
               placeholder="Nouveau mot de passe"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               minLength={6}
-              required
             />
-            <input
-              type="password"
-              className="border p-2 rounded w-full"
+            <PasswordField
               placeholder="Confirmer le nouveau mot de passe"
               value={confirmNewPassword}
               onChange={(e) => setConfirmNewPassword(e.target.value)}
               minLength={6}
-              required
             />
             <button
               type="submit"
