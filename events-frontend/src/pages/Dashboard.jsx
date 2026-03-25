@@ -46,6 +46,7 @@ export default function Dashboard() {
   const [newPassword, setNewPassword] = useState('')
   const [confirmNewPassword, setConfirmNewPassword] = useState('')
   const [savingPassword, setSavingPassword] = useState(false)
+  const [showPasswordForm, setShowPasswordForm] = useState(false)
 
   const [editingEventId, setEditingEventId] = useState(null)
   const [creating, setCreating] = useState(false)
@@ -157,6 +158,7 @@ export default function Dashboard() {
       setCurrentPassword('')
       setNewPassword('')
       setConfirmNewPassword('')
+      setShowPasswordForm(false)
       toast.success(res.data?.message || 'Mot de passe mis a jour.')
     } catch (err) {
       console.error(err)
@@ -250,33 +252,59 @@ export default function Dashboard() {
             </button>
           </form>
 
-          <form onSubmit={handleChangePassword} className="flex flex-col gap-3">
-            <PasswordField
-              placeholder="Mot de passe actuel"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              minLength={1}
-            />
-            <PasswordField
-              placeholder="Nouveau mot de passe"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              minLength={6}
-            />
-            <PasswordField
-              placeholder="Confirmer le nouveau mot de passe"
-              value={confirmNewPassword}
-              onChange={(e) => setConfirmNewPassword(e.target.value)}
-              minLength={6}
-            />
-            <button
-              type="submit"
-              disabled={savingPassword}
-              className="bg-emerald-600 text-white px-4 py-2 rounded hover:bg-emerald-700 disabled:opacity-60 w-full sm:w-fit"
-            >
-              {savingPassword ? 'Mise a jour…' : 'Changer mon mot de passe'}
-            </button>
-          </form>
+          <div className="flex flex-col gap-3">
+            {!showPasswordForm ? (
+              <button
+                type="button"
+                onClick={() => setShowPasswordForm(true)}
+                className="bg-emerald-600 text-white px-4 py-2 rounded hover:bg-emerald-700 w-full sm:w-fit"
+              >
+                Changer mon mot de passe
+              </button>
+            ) : (
+              <form onSubmit={handleChangePassword} className="flex flex-col gap-3">
+                <PasswordField
+                  placeholder="Mot de passe actuel"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  minLength={1}
+                />
+                <PasswordField
+                  placeholder="Nouveau mot de passe"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  minLength={6}
+                />
+                <PasswordField
+                  placeholder="Confirmer le nouveau mot de passe"
+                  value={confirmNewPassword}
+                  onChange={(e) => setConfirmNewPassword(e.target.value)}
+                  minLength={6}
+                />
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <button
+                    type="submit"
+                    disabled={savingPassword}
+                    className="bg-emerald-600 text-white px-4 py-2 rounded hover:bg-emerald-700 disabled:opacity-60 w-full sm:w-fit"
+                  >
+                    {savingPassword ? 'Mise a jour…' : 'Valider le nouveau mot de passe'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowPasswordForm(false)
+                      setCurrentPassword('')
+                      setNewPassword('')
+                      setConfirmNewPassword('')
+                    }}
+                    className="border border-slate-300 px-4 py-2 rounded hover:bg-slate-50 w-full sm:w-fit"
+                  >
+                    Annuler
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
         </div>
       </section>
 
