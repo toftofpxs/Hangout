@@ -8,8 +8,9 @@ dotenv.config();
 export const register = async (req, res, next) => {
   try {
     const { name, email, password } = req.body;
+    const normalizedPassword = typeof password === "string" ? password.trim() : password;
 
-    if (!name || !email || !password) {
+    if (!name || !email || !normalizedPassword) {
       return res.status(400).json({ message: "Missing fields" });
     }
 
@@ -18,7 +19,7 @@ export const register = async (req, res, next) => {
       return res.status(400).json({ message: "Email already used" });
     }
 
-    const password_hash = await bcrypt.hash(password, 10);
+    const password_hash = await bcrypt.hash(normalizedPassword, 10);
     const user = await UserModel.create({ name, email, password_hash, role: "participant" });
 
     const token = jwt.sign(
@@ -39,8 +40,9 @@ export const login = async (req, res, next) => {
     console.log('[LOGIN] body:', req.body);
 
     const { email, password } = req.body;
+    const normalizedPassword = typeof password === "string" ? password.trim() : password;
 
-    if (!email || !password) {
+    if (!email || !normalizedPassword) {
       return res.status(400).json({ message: "Missing fields" });
     }
 
@@ -49,7 +51,7 @@ export const login = async (req, res, next) => {
       return res.status(400).json({ message: "Invalid credentials" });
     }
 
-    const match = await bcrypt.compare(password, user.password_hash);
+    const match = await bcrypt.compare(normalizedPassword, user.password_hash);
     if (!match) {
       return res.status(400).json({ message: "Invalid credentials" });
     }
