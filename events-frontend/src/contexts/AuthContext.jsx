@@ -66,11 +66,7 @@ export function AuthProvider({ children }) {
   const register = async (payload) => {
     try {
       const res = await api.post('/auth/register', payload)
-      const { token, user } = res.data
-      saveToken(token)
-      localStorage.setItem('user', JSON.stringify(user))
-      setUser({ ...user, token })
-      return user
+      return res.data
     } catch (err) {
       throw err
     }
