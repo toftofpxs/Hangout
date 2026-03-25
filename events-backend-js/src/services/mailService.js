@@ -149,3 +149,48 @@ export async function sendCartPaymentConfirmationEmail({ to, userName, items, to
     return { sent: false, skipped: true }
   }
 }
+
+export async function sendEmailVerificationEmail({ to, userName, verificationLink }) {
+  try {
+    const transporter = await getTransporter()
+    if (!transporter) {
+      return { sent: false, skipped: true }
+    }
+
+    const from = process.env.MAIL_FROM || process.env.SMTP_USER
+
+    await transporter.sendMail({
+      from,
+      to,
+      subject: 'Activez votre compte Hangout',
+      text: [
+        `Bonjour ${userName || ''},`,
+        '',
+        'Merci pour votre inscription sur Hangout.',
+        'Cliquez sur le lien ci-dessous pour activer votre compte :',
+        verificationLink,
+        '',
+        'Ce lien expire dans 24 heures.',
+      ].join('\n'),
+      html: `
+        <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #1f2937;">
+          <h2>Activation de votre compte</h2>
+          <p>Bonjour ${userName || ''},</p>
+          <p>Merci pour votre inscription sur Hangout.</p>
+          <p>
+            <a href="${verificationLink}" style="display:inline-block;padding:10px 16px;background:#2563eb;color:#ffffff;text-decoration:none;border-radius:6px;">
+              Activer mon compte
+            </a>
+          </p>
+          <p>Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :</p>
+          <p>${verificationLink}</p>
+          <p>Ce lien expire dans 24 heures.</p>
+        </div>
+      `,
+    })
+
+    return { sent: true, skipped: false }
+  } catch {
+    return { sent: false, skipped: true }
+  }
+}

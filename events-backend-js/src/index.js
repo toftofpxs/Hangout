@@ -52,6 +52,42 @@ const ensureUsersRoleEnum = async () => {
   );
 };
 
+const ensureEmailVerificationColumns = async () => {
+  const [rows] = await pool.query(
+    `
+      SELECT COLUMN_NAME
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'users'
+        AND COLUMN_NAME IN ('email_verified', 'email_verification_token', 'email_verification_expires_at')
+    `
+  );
+
+  const existing = new Set(rows.map((row) => row.COLUMN_NAME));
+  let addedEmailVerified = false;
+
+  if (!existing.has('email_verified')) {
+    await pool.query('ALTER TABLE users ADD COLUMN email_verified TINYINT(1) NOT NULL DEFAULT 0 AFTER password_hash');
+    addedEmailVerified = true;
+    console.log('✅ Colonne email_verified ajoutee sur users');
+  }
+
+  if (!existing.has('email_verification_token')) {
+    await pool.query('ALTER TABLE users ADD COLUMN email_verification_token VARCHAR(255) NULL AFTER email_verified');
+    console.log('✅ Colonne email_verification_token ajoutee sur users');
+  }
+
+  if (!existing.has('email_verification_expires_at')) {
+    await pool.query('ALTER TABLE users ADD COLUMN email_verification_expires_at DATETIME NULL AFTER email_verification_token');
+    console.log('✅ Colonne email_verification_expires_at ajoutee sur users');
+  }
+
+  if (addedEmailVerified) {
+    await pool.query('UPDATE users SET email_verified = 1');
+    console.log('✅ Comptes existants marques verifies');
+  }
+};
+
 const ensureConfiguredSuperUser = async () => {
   const configuredEmail = process.env.SUPER_USER_EMAIL;
   if (!configuredEmail) return;
@@ -142,6 +178,7 @@ const PORT = process.env.PORT || 4000;
 const startServer = async () => {
   try {
     await ensureUsersRoleEnum();
+    await ensureEmailVerificationColumns();
     await ensureEventEndDateColumn();
     await ensureConfiguredSuperUser();
     app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

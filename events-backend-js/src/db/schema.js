@@ -18,6 +18,9 @@ export const users = mysqlTable("users", {
   name: varchar("name", { length: 255 }).notNull(),
   email: varchar("email", { length: 255 }).notNull().unique(),
   password_hash: varchar("password_hash", { length: 255 }).notNull(),
+  email_verified: int("email_verified").notNull().default(0),
+  email_verification_token: varchar("email_verification_token", { length: 255 }),
+  email_verification_expires_at: timestamp("email_verification_expires_at"),
   role: mysqlEnum("role", ["super_user", "admin", "organisateur", "participant"]).default("participant"),
   created_at: timestamp("created_at").defaultNow(),
 });
