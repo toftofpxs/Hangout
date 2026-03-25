@@ -4,9 +4,6 @@ CREATE TABLE IF NOT EXISTS users (
   name VARCHAR(255) NOT NULL,
   email VARCHAR(255) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
-  email_verified TINYINT(1) NOT NULL DEFAULT 0,
-  email_verification_token VARCHAR(255) NULL,
-  email_verification_expires_at DATETIME NULL,
   role ENUM('super_user','admin','organisateur','participant') DEFAULT 'participant',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
