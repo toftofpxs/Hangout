@@ -31,6 +31,16 @@ export const UserModel = {
     return rows[0] || null
   },
 
+  async findByIdWithPassword(id) {
+    const rows = await db.select().from(users).where(eq(users.id, Number(id)))
+    return rows[0] || null
+  },
+
+  async updatePassword(id, password_hash) {
+    await db.update(users).set({ password_hash }).where(eq(users.id, Number(id)))
+    return this.findById(Number(id))
+  },
+
   async findAll() {
     return db.select({
       id: users.id,

@@ -17,6 +17,10 @@ export default function Dashboard() {
 
   const [displayName, setDisplayName] = useState(user?.name || '')
   const [savingName, setSavingName] = useState(false)
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmNewPassword, setConfirmNewPassword] = useState('')
+  const [savingPassword, setSavingPassword] = useState(false)
 
   const [editingEventId, setEditingEventId] = useState(null)
   const [creating, setCreating] = useState(false)
@@ -111,6 +115,32 @@ export default function Dashboard() {
     }
   }
 
+  const handleChangePassword = async (e) => {
+    e.preventDefault()
+
+    if (newPassword !== confirmNewPassword) {
+      toast.error('La confirmation du nouveau mot de passe ne correspond pas.')
+      return
+    }
+
+    try {
+      setSavingPassword(true)
+      const res = await api.put('/users/me/password', {
+        currentPassword,
+        newPassword,
+      })
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmNewPassword('')
+      toast.success(res.data?.message || 'Mot de passe mis a jour.')
+    } catch (err) {
+      console.error(err)
+      toast.error(err.response?.data?.message || 'Erreur lors du changement de mot de passe.')
+    } finally {
+      setSavingPassword(false)
+    }
+  }
+
   // Création d’un événement
   const handleCreateEvent = async (formData) => {
     try {
@@ -177,22 +207,60 @@ export default function Dashboard() {
 
       <section className="surface-section p-4">
         <h2 className="text-xl font-semibold mb-3">Mon profil</h2>
-        <form onSubmit={handleSaveName} className="flex flex-col md:flex-row gap-3 md:items-center">
-          <input
-            className="border p-2 rounded w-full md:max-w-sm"
-            placeholder="Mon nom"
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
-            required
-          />
-          <button
-            type="submit"
-            disabled={savingName}
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-60"
-          >
-            {savingName ? 'Enregistrement…' : 'Changer mon nom'}
-          </button>
-        </form>
+        <div className="grid gap-6 lg:grid-cols-2">
+          <form onSubmit={handleSaveName} className="flex flex-col gap-3">
+            <input
+              className="border p-2 rounded w-full"
+              placeholder="Mon nom"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              required
+            />
+            <button
+              type="submit"
+              disabled={savingName}
+              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-60 w-full sm:w-fit"
+            >
+              {savingName ? 'Enregistrement…' : 'Changer mon nom'}
+            </button>
+          </form>
+
+          <form onSubmit={handleChangePassword} className="flex flex-col gap-3">
+            <input
+              type="password"
+              className="border p-2 rounded w-full"
+              placeholder="Mot de passe actuel"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              required
+            />
+            <input
+              type="password"
+              className="border p-2 rounded w-full"
+              placeholder="Nouveau mot de passe"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              minLength={6}
+              required
+            />
+            <input
+              type="password"
+              className="border p-2 rounded w-full"
+              placeholder="Confirmer le nouveau mot de passe"
+              value={confirmNewPassword}
+              onChange={(e) => setConfirmNewPassword(e.target.value)}
+              minLength={6}
+              required
+            />
+            <button
+              type="submit"
+              disabled={savingPassword}
+              className="bg-emerald-600 text-white px-4 py-2 rounded hover:bg-emerald-700 disabled:opacity-60 w-full sm:w-fit"
+            >
+              {savingPassword ? 'Mise a jour…' : 'Changer mon mot de passe'}
+            </button>
+          </form>
+        </div>
       </section>
 
       {/* ——— Mes inscriptions ——— */}

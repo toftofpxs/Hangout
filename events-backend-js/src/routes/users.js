@@ -1,4 +1,5 @@
 import express from 'express'
+import bcrypt from 'bcryptjs'
 import { authenticateToken } from '../middleware/auth.js'
 import { requireRole } from '../middleware/roles.js'
 import { UserModel } from '../models/userModel.js'
@@ -16,6 +17,41 @@ router.get('/me', authenticateToken, async (req, res, next) => {
     if (!u) return res.status(404).json({ message: 'User not found' })
     const { id, name, email, role, created_at } = u
     res.json({ id, name, email, role, created_at })
+  } catch (e) { next(e) }
+})
+
+router.put('/me/password', authenticateToken, async (req, res, next) => {
+  try {
+    const id = Number(req.user.id)
+    if (Number.isNaN(id)) return res.status(401).json({ message: 'Not authenticated' })
+
+    const currentPassword = typeof req.body?.currentPassword === 'string' ? req.body.currentPassword.trim() : ''
+    const newPassword = typeof req.body?.newPassword === 'string' ? req.body.newPassword.trim() : ''
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: 'Current password and new password are required' })
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: 'New password must contain at least 6 characters' })
+    }
+
+    if (currentPassword === newPassword) {
+      return res.status(400).json({ message: 'New password must be different from the current password' })
+    }
+
+    const user = await UserModel.findByIdWithPassword(id)
+    if (!user) return res.status(404).json({ message: 'User not found' })
+
+    const matches = await bcrypt.compare(currentPassword, user.password_hash)
+    if (!matches) {
+      return res.status(400).json({ message: 'Current password is incorrect' })
+    }
+
+    const password_hash = await bcrypt.hash(newPassword, 10)
+    await UserModel.updatePassword(id, password_hash)
+
+    return res.json({ message: 'Password updated successfully' })
   } catch (e) { next(e) }
 })
 
