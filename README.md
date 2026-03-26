@@ -1,7 +1,7 @@
 # Hangout - Plateforme de gestion d'evenements
 
 Hangout est une solution complete de gestion d'evenements avec un backend API, une application web et une application mobile.
-Le projet permet l'authentification, la creation d'evenements, les inscriptions, les paiements et l'administration des utilisateurs.
+Le projet permet l'authentification, la creation d'evenements, les inscriptions, les paiements (fictif) et l'administration des utilisateurs.
 
 ## Identifiants de test
 
