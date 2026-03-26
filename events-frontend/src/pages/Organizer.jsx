@@ -4,6 +4,7 @@ import { createEvent, getMyEvents, updateEvent, deleteEvent } from '../services/
 import EventForm from '../components/EventForm'
 import { useToast } from '../contexts/ToastContext'
 import { useConfirm } from '../contexts/ConfirmContext'
+import { toAbsoluteMediaUrl } from '../utils/media'
 
 export default function Organizer(){
   const navigate = useNavigate()
@@ -143,7 +144,7 @@ export default function Organizer(){
                   {event.photos && event.photos.length > 0 && (
                     <div className="mb-3 max-h-40 overflow-hidden rounded">
                       <img 
-                        src={event.photos[0]} 
+                        src={toAbsoluteMediaUrl(event.photos[0])} 
                         alt={event.title}
                         className="w-full h-40 object-cover"
                       />

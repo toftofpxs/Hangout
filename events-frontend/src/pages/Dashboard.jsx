@@ -23,7 +23,7 @@ function PasswordField({ value, onChange, placeholder, minLength }) {
       <button
         type="button"
         onClick={() => setVisible((state) => !state)}
-        className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-blue-700 hover:text-blue-900"
+        className="absolute right-2 top-1/2 -translate-y-1/2 text-sm text-blue-700 hover:text-blue-900 w-16 text-center"
       >
         {visible ? 'Masquer' : 'Afficher'}
       </button>
@@ -229,11 +229,27 @@ export default function Dashboard() {
   if (loading) return <p className="p-6">Chargement…</p>
 
   return (
-    <div className="max-w-5xl mx-auto mt-4 sm:mt-8 px-0 sm:px-4 space-y-8 sm:space-y-10">
+    <div className="max-w-5xl mx-auto mt-4 sm:mt-8 px-3 sm:px-4 space-y-8 sm:space-y-10">
       <h1 className="text-2xl font-bold">Bonjour, {user?.name}</h1>
 
       <section className="surface-section p-4">
         <h2 className="text-xl font-semibold mb-3">Mon profil</h2>
+
+        <div className="mb-5 flex flex-col sm:flex-row gap-4 text-sm text-gray-700 border-b pb-4">
+          <div className="flex items-center gap-2">
+            <span className="font-medium">Email :</span>
+            <span>{user?.email}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="font-medium">Membre depuis :</span>
+            <span>
+              {user?.created_at
+                ? new Date(user.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+                : '—'}
+            </span>
+          </div>
+        </div>
+
         <div className="grid gap-6 lg:grid-cols-2">
           <form onSubmit={handleSaveName} className="flex flex-col gap-3">
             <input
@@ -304,6 +320,25 @@ export default function Dashboard() {
                 </div>
               </form>
             )}
+          </div>
+        </div>
+      </section>
+
+      {/* ——— Statistiques ——— */}
+      <section className="surface-section p-4">
+        <h2 className="text-xl font-semibold mb-4">Mes statistiques</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="surface-card p-4 text-center">
+            <p className="text-3xl font-bold text-blue-600">{myEvents.length}</p>
+            <p className="text-sm text-gray-600 mt-1">Événement(s) créé(s)</p>
+          </div>
+          <div className="surface-card p-4 text-center">
+            <p className="text-3xl font-bold text-emerald-600">{inscriptions.enCours?.length ?? 0}</p>
+            <p className="text-sm text-gray-600 mt-1">Inscription(s) en cours</p>
+          </div>
+          <div className="surface-card p-4 text-center">
+            <p className="text-3xl font-bold text-purple-600">{inscriptions.passes?.length ?? 0}</p>
+            <p className="text-sm text-gray-600 mt-1">Événement(s) passé(s)</p>
           </div>
         </div>
       </section>

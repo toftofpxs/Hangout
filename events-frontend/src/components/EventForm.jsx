@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { useToast } from '../contexts/ToastContext'
+import { toAbsoluteMediaUrl } from '../utils/media'
 
 export default function EventForm({ onSubmit, initial = {}, isLoading = false }){
   const toast = useToast()
@@ -161,7 +162,7 @@ export default function EventForm({ onSubmit, initial = {}, isLoading = false })
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
             {existingPhotos.map((photo, index) => (
               <div key={index} className="relative group">
-                <img src={photo} alt={`Photo ${index}`} className="w-full h-32 object-cover rounded" />
+                <img src={toAbsoluteMediaUrl(photo)} alt={`Photo ${index}`} className="w-full h-32 object-cover rounded" />
                 <button
                   type="button"
                   onClick={() => handleRemoveExistingPhoto(index)}

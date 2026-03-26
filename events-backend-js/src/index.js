@@ -27,6 +27,9 @@ cron.schedule('0 3 * * *', async () => {
 
 dotenv.config();
 const app = express();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const projectRoot = path.resolve(__dirname, '..');
 
 const ensureEventEndDateColumn = async () => {
   const [rows] = await pool.query(
@@ -63,7 +66,7 @@ const ensureConfiguredSuperUser = async () => {
 };
 
 
-const uploadsDir = path.resolve(process.cwd(), "uploads");
+const uploadsDir = path.join(projectRoot, "uploads");
 
 console.log("📁 uploadsDir =", uploadsDir);
 console.log("📁 uploads exists?", fs.existsSync(uploadsDir));

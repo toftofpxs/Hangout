@@ -23,7 +23,10 @@ Si aucun compte n'est requis, l'accès est libre.
 1. npm install
 2. npm run dev
 
-Configurer `VITE_API_BASE_URL` dans `.env` si nécessaire (exemple : http://localhost:3000/api).
+Configurer ces variables dans `.env` si nécessaire :
+
+- `VITE_API_URL` (exemple : `http://localhost:4000/api`)
+- `VITE_UPLOADS_BASE_URL` (optionnel, utile en prod si les fichiers `/uploads` sont servis par un domaine API different)
 
 ## Remarques
 

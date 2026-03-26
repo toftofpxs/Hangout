@@ -6,6 +6,7 @@ import { AuthContext } from '../contexts/AuthContext'
 import { useCart } from '../contexts/CartContext'
 import { useToast } from '../contexts/ToastContext'
 import { useConfirm } from '../contexts/ConfirmContext'
+import { toAbsoluteMediaUrl } from '../utils/media'
 
 export default function EventDetails() {
   const { id } = useParams()
@@ -20,16 +21,8 @@ export default function EventDetails() {
   const navigate = useNavigate()
   const { addToCart, isInCart } = useCart()
 
-  const uploadsBaseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:4000/api').replace(/\/api\/?$/, '')
-
-  const toAbsoluteImageUrl = (imgPath) => {
-    if (!imgPath || typeof imgPath !== 'string') return null
-    if (/^https?:\/\//i.test(imgPath)) return imgPath
-    return `${uploadsBaseUrl}${imgPath.startsWith('/') ? '' : '/'}${imgPath}`
-  }
-
   const eventImages = Array.isArray(event?.photos)
-    ? event.photos.map(toAbsoluteImageUrl).filter(Boolean)
+    ? event.photos.map(toAbsoluteMediaUrl).filter(Boolean)
     : []
 
   // 🔹 Charger les infos de l'événement

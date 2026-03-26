@@ -37,7 +37,7 @@ router.put('/me/password', authenticateToken, async (req, res, next) => {
     }
 
     if (currentPassword === newPassword) {
-      return res.status(400).json({ message: 'New password must be different from the current password' })
+      return res.status(400).json({ message: 'Le nouveau mot de passe doit être différent de l\'ancien mot de passe' })
     }
 
     const user = await UserModel.findByIdWithPassword(id)
