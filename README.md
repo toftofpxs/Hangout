@@ -10,6 +10,12 @@ Le projet permet l'authentification, la creation d'evenements, les inscriptions,
 
 ## Installation et lancement
 
+## Acces a l'application
+
+- Site web en production : https://events-hangout.com
+- Le site web est accessible soit via ce lien, soit via une installation locale.
+- L'application mobile doit obligatoirement passer par une installation locale (Expo Go ou emulateur).
+
 ### 1) Backend API
 
 ```bash
@@ -30,6 +36,10 @@ npm install
 npm run dev
 ```
 
+Acces web :
+- Production : https://events-hangout.com
+- Local : via le lancement Vite en developpement
+
 ### 3) Application Mobile
 
 ```bash
@@ -39,6 +49,7 @@ npm start
 ```
 
 Ensuite, lancer l'application via Expo Go ou un emulateur Android/iOS.
+Le mobile n'est pas accessible via un lien web public et doit etre installe/lance en local.
 
 ## Documentation complete
 

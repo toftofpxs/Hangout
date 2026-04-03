@@ -5,11 +5,15 @@ Frontend React + Tailwind pour le projet Events.
 ## Accès à l'application (Production)
 
 Lien vers l'application en production :
-[mettre ici le lien]
+https://events-hangout.com
 
 ## Modalités d'accès
 
-L'application est accessible en ligne via un navigateur web.
+Le site web est accessible :
+- via le lien de production https://events-hangout.com
+- ou via une installation locale (mode developpement)
+
+Important : l'application mobile n'est pas accessible via ce lien et doit obligatoirement passer par une installation locale.
 
 Selon les fonctionnalités, un compte peut être nécessaire :
 - Rôles : admin, user
