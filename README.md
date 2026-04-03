@@ -14,6 +14,7 @@ Le projet permet l'authentification, la creation d'evenements, les inscriptions,
 
 - Site web en production : https://events-hangout.com
 - Le site web est accessible soit via ce lien, soit via une installation locale.
+- Note : le site peut prendre environ 50 secondes au premier chargement, car l'hebergeur met l'application en veille (sleep) lorsqu'elle est inactive.
 - L'application mobile doit obligatoirement passer par une installation locale (Expo Go ou emulateur).
 
 ### 1) Backend API
@@ -38,7 +39,6 @@ npm run dev
 
 Acces web :
 - Production : https://events-hangout.com
-- Note : le site peut prendre environ 50 secondes au premier chargement, car l'hebergeur met l'application en veille (sleep) lorsqu'elle est inactive.
 - Local : via le lancement Vite en developpement
 
 ### 3) Application Mobile
