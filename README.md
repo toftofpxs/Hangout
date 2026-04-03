@@ -38,6 +38,7 @@ npm run dev
 
 Acces web :
 - Production : https://events-hangout.com
+- Note : le site peut prendre environ 50 secondes au premier chargement, car l'hebergeur met l'application en veille (sleep) lorsqu'elle est inactive.
 - Local : via le lancement Vite en developpement
 
 ### 3) Application Mobile
