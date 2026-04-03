@@ -1,5 +1,6 @@
 // src/controllers/eventsController.js
 import { EventModel } from "../models/eventModel.js";
+import { resolveEventPhotoUrls } from "../services/mediaStorage.js";
 
 /* -------------------- Lister tous les événements publics -------------------- */
 export const listEvents = async (req, res, next) => {
@@ -54,7 +55,7 @@ export const createEvent = async (req, res, next) => {
 
     // 1) Fichiers uploadés via multer: upload.array('photos', 5)
     if (Array.isArray(req.files) && req.files.length > 0) {
-      photos = req.files.map((file) => `/uploads/events/${file.filename}`);
+      photos = await resolveEventPhotoUrls(req.files);
     }
 
     // 2) Valeur envoyée en JSON (optionnel, ex: URLs existantes)
@@ -141,7 +142,7 @@ export const updateEvent = async (req, res, next) => {
     }
 
     if (Array.isArray(req.files) && req.files.length > 0) {
-      const uploadedPhotos = req.files.map((file) => `/uploads/events/${file.filename}`);
+      const uploadedPhotos = await resolveEventPhotoUrls(req.files);
       // Combine kept existing photos with newly uploaded ones
       fields.photos = [...existingPhotos, ...uploadedPhotos];
     } else if (existingPhotos.length > 0) {

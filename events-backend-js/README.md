@@ -27,6 +27,18 @@ SOURCE create_tables.sql;
 
 Copier le fichier .env.example en .env et compléter les identifiants.
 
+Configuration images (important en production) :
+
+- Sans Cloudinary: les images sont stockées localement dans uploads/events (peut être perdu au redéploiement)
+- Avec Cloudinary: les images sont stockées sur Cloudinary et les URLs HTTPS sont sauvegardées en base
+
+Variables Cloudinary (dans .env):
+
+- CLOUDINARY_CLOUD_NAME
+- CLOUDINARY_API_KEY
+- CLOUDINARY_API_SECRET
+- CLOUDINARY_EVENTS_FOLDER (optionnel, défaut: hangout/events)
+
 Lancer le serveur :
 
 npm run dev
