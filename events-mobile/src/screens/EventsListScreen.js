@@ -28,6 +28,7 @@ const BASE_TABS = [
 export default function EventsListScreen({ navigation }) {
   const [events, setEvents] = useState([]);
   const [inscriptions, setInscriptions] = useState({ enCours: [], passes: [] });
+  const [myEvents, setMyEvents] = useState([]);
   const [adminUsers, setAdminUsers] = useState([]);
   const [adminEvents, setAdminEvents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -39,6 +40,14 @@ export default function EventsListScreen({ navigation }) {
   const { addToCart, isInCart, itemCount } = useCart();
   const [profileName, setProfileName] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const isAdmin = userData?.role === 'admin' || userData?.role === 'super_user';
 
@@ -55,12 +64,13 @@ export default function EventsListScreen({ navigation }) {
   const fetchContextPanels = useCallback(async () => {
     if (!userData) {
       setInscriptions({ enCours: [], passes: [] });
+      setMyEvents([]);
       setAdminUsers([]);
       setAdminEvents([]);
       return;
     }
 
-    const tasks = [API.get('/inscriptions/me')];
+    const tasks = [API.get('/inscriptions/me'), API.get('/events/mine')];
 
     if (isAdmin) {
       tasks.push(API.get('/admin/users'));
@@ -76,9 +86,16 @@ export default function EventsListScreen({ navigation }) {
       setInscriptions({ enCours: [], passes: [] });
     }
 
+    const myEventsResult = results[1];
+    if (myEventsResult?.status === 'fulfilled') {
+      setMyEvents(Array.isArray(myEventsResult.value.data) ? myEventsResult.value.data : []);
+    } else {
+      setMyEvents([]);
+    }
+
     if (isAdmin) {
-      const usersResult = results[1];
-      const eventsResult = results[2];
+      const usersResult = results[2];
+      const eventsResult = results[3];
 
       setAdminUsers(usersResult?.status === 'fulfilled' ? usersResult.value.data || [] : []);
       setAdminEvents(eventsResult?.status === 'fulfilled' ? eventsResult.value.data || [] : []);
@@ -167,6 +184,59 @@ export default function EventsListScreen({ navigation }) {
     }
   };
 
+  const resetPasswordForm = () => {
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setShowCurrentPassword(false);
+    setShowNewPassword(false);
+    setShowConfirmPassword(false);
+  };
+
+  const handleUpdatePassword = async () => {
+    const current = currentPassword.trim();
+    const next = newPassword.trim();
+    const confirm = confirmPassword.trim();
+
+    if (!current || !next || !confirm) {
+      Alert.alert('Champs requis', 'Tous les champs mot de passe sont obligatoires.');
+      return;
+    }
+
+    if (next.length < 6) {
+      Alert.alert('Mot de passe invalide', 'Le nouveau mot de passe doit contenir au moins 6 caractères.');
+      return;
+    }
+
+    if (next !== confirm) {
+      Alert.alert('Confirmation invalide', 'La confirmation du nouveau mot de passe ne correspond pas.');
+      return;
+    }
+
+    if (current === next) {
+      Alert.alert('Mot de passe invalide', 'Le nouveau mot de passe doit être différent de l\'ancien mot de passe.');
+      return;
+    }
+
+    try {
+      setSavingPassword(true);
+      const response = await API.put('/users/me/password', {
+        currentPassword: current,
+        newPassword: next,
+      });
+      resetPasswordForm();
+      setShowPasswordForm(false);
+      Alert.alert('Succès', response?.data?.message || 'Mot de passe mis à jour.');
+    } catch (err) {
+      Alert.alert(
+        'Erreur',
+        err.response?.data?.message || 'Impossible de changer le mot de passe.'
+      );
+    } finally {
+      setSavingPassword(false);
+    }
+  };
+
   const stats = useMemo(() => {
     const freeEvents = events.filter((event) => Number(event.price || 0) === 0).length;
     const upcoming = events.filter((event) => new Date(event.end_date || event.date) >= new Date()).length;
@@ -179,15 +249,16 @@ export default function EventsListScreen({ navigation }) {
   }, [events]);
 
   const accountStats = useMemo(() => {
-    const upcoming = inscriptions.enCours?.length || 0;
-    const past = inscriptions.passes?.length || 0;
+    const created = myEvents.length;
+    const joined = (inscriptions.enCours?.length || 0) + (inscriptions.passes?.length || 0);
+    const participated = inscriptions.passes?.length || 0;
 
     return [
-      { label: 'Actives', value: upcoming, tone: 'cyan' },
-      { label: 'Passées', value: past, tone: 'gold' },
-      { label: 'Role', value: roleLabel(userData?.role), tone: 'teal' },
+      { label: 'Créés', value: created, tone: 'cyan' },
+      { label: 'Rejoints', value: joined, tone: 'teal' },
+      { label: 'Participés', value: participated, tone: 'gold' },
     ];
-  }, [inscriptions.enCours, inscriptions.passes, userData?.role]);
+  }, [inscriptions.enCours, inscriptions.passes, myEvents.length]);
 
   const adminStats = useMemo(() => {
     const totalParticipants = adminEvents.reduce(
@@ -364,10 +435,73 @@ export default function EventsListScreen({ navigation }) {
                     {savingProfile ? 'Enregistrement...' : 'Enregistrer'}
                   </Text>
                 </TouchableOpacity>
+
+                {!showPasswordForm ? (
+                  <TouchableOpacity
+                    style={styles.passwordToggleButton}
+                    onPress={() => setShowPasswordForm(true)}
+                  >
+                    <Text style={styles.passwordToggleButtonText}>Changer mon mot de passe</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <View style={styles.passwordFormWrap}>
+                    <PasswordField
+                      label="Mot de passe actuel"
+                      value={currentPassword}
+                      onChangeText={setCurrentPassword}
+                      visible={showCurrentPassword}
+                      onToggleVisible={() => setShowCurrentPassword((prev) => !prev)}
+                      editable={!savingPassword}
+                    />
+                    <PasswordField
+                      label="Nouveau mot de passe"
+                      value={newPassword}
+                      onChangeText={setNewPassword}
+                      visible={showNewPassword}
+                      onToggleVisible={() => setShowNewPassword((prev) => !prev)}
+                      editable={!savingPassword}
+                    />
+                    <PasswordField
+                      label="Confirmer le nouveau mot de passe"
+                      value={confirmPassword}
+                      onChangeText={setConfirmPassword}
+                      visible={showConfirmPassword}
+                      onToggleVisible={() => setShowConfirmPassword((prev) => !prev)}
+                      editable={!savingPassword}
+                    />
+
+                    <View style={styles.passwordActionsRow}>
+                      <TouchableOpacity
+                        style={[
+                          styles.passwordSubmitButton,
+                          savingPassword && styles.profileButtonDisabled,
+                        ]}
+                        onPress={handleUpdatePassword}
+                        disabled={savingPassword}
+                      >
+                        <Text style={styles.passwordSubmitButtonText}>
+                          {savingPassword ? 'Mise à jour...' : 'Valider le nouveau mot de passe'}
+                        </Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.passwordCancelButton}
+                        onPress={() => {
+                          resetPasswordForm();
+                          setShowPasswordForm(false);
+                        }}
+                        disabled={savingPassword}
+                      >
+                        <Text style={styles.passwordCancelButtonText}>Annuler</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
               </View>
 
               <InfoRow label="Nom" value={userData?.name || '-'} />
               <InfoRow label="Email" value={userData?.email || '-'} />
+              <InfoRow label="Membre depuis" value={formatMemberSince(userData?.created_at)} />
               <InfoRow label="Role" value={roleLabel(userData?.role)} />
             </Panel>
 
@@ -501,6 +635,29 @@ function InfoRow({ label, value }) {
   );
 }
 
+function PasswordField({ label, value, onChangeText, visible, onToggleVisible, editable }) {
+  return (
+    <View style={styles.passwordFieldWrap}>
+      <Text style={styles.passwordFieldLabel}>{label}</Text>
+      <View style={styles.passwordInputRow}>
+        <TextInput
+          style={styles.passwordInput}
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={label}
+          placeholderTextColor={colors.muted}
+          secureTextEntry={!visible}
+          editable={editable}
+          autoCapitalize="none"
+        />
+        <TouchableOpacity style={styles.passwordRevealButton} onPress={onToggleVisible}>
+          <Text style={styles.passwordRevealButtonText}>{visible ? 'Masquer' : 'Afficher'}</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
 function Tag({ text, tone = 'cyan', compact = false }) {
   return (
     <Text
@@ -568,6 +725,17 @@ function roleLabel(role) {
     default:
       return 'Compte';
   }
+}
+
+function formatMemberSince(value) {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return date.toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
 }
 
 function capitalize(value) {
@@ -886,6 +1054,109 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontWeight: '800',
     fontFamily: fonts.heading,
+  },
+
+  passwordToggleButton: {
+    marginTop: 2,
+    backgroundColor: colors.success,
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  passwordToggleButtonText: {
+    color: colors.white,
+    fontWeight: '800',
+    fontFamily: fonts.heading,
+  },
+
+  passwordFormWrap: {
+    marginTop: 6,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 14,
+    backgroundColor: colors.panel,
+    padding: 10,
+  },
+
+  passwordFieldWrap: {
+    gap: 6,
+  },
+
+  passwordFieldLabel: {
+    color: colors.ink,
+    fontWeight: '700',
+    fontSize: 13,
+  },
+
+  passwordInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 12,
+    backgroundColor: colors.white,
+    overflow: 'hidden',
+  },
+
+  passwordInput: {
+    flex: 1,
+    color: colors.ink,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+
+  passwordRevealButton: {
+    borderLeftWidth: 1,
+    borderLeftColor: colors.line,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: colors.panelStrong,
+    minWidth: 82,
+    alignItems: 'center',
+  },
+
+  passwordRevealButtonText: {
+    color: colors.cyan,
+    fontWeight: '700',
+    fontSize: 12,
+  },
+
+  passwordActionsRow: {
+    gap: 8,
+    marginTop: 2,
+  },
+
+  passwordSubmitButton: {
+    backgroundColor: colors.success,
+    borderRadius: 12,
+    paddingVertical: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  passwordSubmitButtonText: {
+    color: colors.white,
+    fontWeight: '800',
+    fontFamily: fonts.heading,
+    fontSize: 13,
+  },
+
+  passwordCancelButton: {
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 12,
+    paddingVertical: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.panelStrong,
+  },
+
+  passwordCancelButtonText: {
+    color: colors.ink,
+    fontWeight: '700',
   },
 
   listItem: {
