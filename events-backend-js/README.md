@@ -27,17 +27,10 @@ SOURCE create_tables.sql;
 
 Copier le fichier .env.example en .env et compléter les identifiants.
 
-Configuration images (important en production) :
+Configuration images :
 
-- Sans Cloudinary: les images sont stockées localement dans uploads/events (peut être perdu au redéploiement)
-- Avec Cloudinary: les images sont stockées sur Cloudinary et les URLs HTTPS sont sauvegardées en base
-
-Variables Cloudinary (dans .env):
-
-- CLOUDINARY_CLOUD_NAME
-- CLOUDINARY_API_KEY
-- CLOUDINARY_API_SECRET
-- CLOUDINARY_EVENTS_FOLDER (optionnel, défaut: hangout/events)
+- En local : les images sont stockees dans `uploads/events/`, aucune configuration supplementaire requise.
+- En production uniquement : Cloudinary peut etre configure pour stocker les images en ligne (variables `CLOUDINARY_*` dans le `.env`). Inutile pour une installation locale.
 
 Lancer le serveur :
 

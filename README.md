@@ -32,14 +32,38 @@ cd Hangout
 
 ### Etape 2 — Configurer les variables d'environnement
 
-Dans le dossier `events-backend-js`, copiez le fichier `.env.example` en `.env` et renseignez vos valeurs :
+**Backend** — dans le dossier `events-backend-js` :
 
 ```bash
 cd events-backend-js
 copy .env.example .env
 ```
 
-Editez ensuite le fichier `.env` avec vos parametres de base de donnees, JWT, etc.
+Editez ensuite le fichier `.env` avec votre mot de passe MySQL et un `JWT_SECRET` de votre choix.
+
+> **Cloudinary** : inutile en local. Les variables `CLOUDINARY_*` ne servent qu'en production pour stocker les photos en ligne. En local, les images sont enregistrees directement dans le dossier `uploads/`.
+
+**Frontend** — dans le dossier `events-frontend` :
+
+```bash
+cd events-frontend
+copy .env.example .env
+```
+
+Aucune modification necessaire, `http://localhost:4000/api` est deja configure par defaut.
+
+**Mobile** — dans le dossier `events-mobile` :
+
+```bash
+cd events-mobile
+copy .env.example .env
+```
+
+Remplacer `TON_IP_LOCALE` par l'adresse IP de votre machine sur le reseau local.
+Pour la connaitre : ouvrir un terminal et taper `ipconfig`, puis copier l'adresse IPv4.
+Exemple : `EXPO_PUBLIC_API_URL=http://192.168.1.42:4000/api`
+
+> Le mobile ne peut pas utiliser `localhost` car il tourne sur un telephone/emulateur separe du PC.
 
 ---
 
