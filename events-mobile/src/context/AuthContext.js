@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { getToken, getUser, removeToken, saveToken, saveUser } from '../storage/tokenStorage';
-import API, { setOnTokenExpired } from '../api/axios';
+import { getRefreshToken, getToken, getUser, removeToken, saveAuthSession, saveUser } from '../storage/tokenStorage';
+import API, { setOnAuthRefreshed, setOnTokenExpired } from '../api/axios';
 
 const AuthContext = createContext(null);
 
@@ -27,11 +27,13 @@ export function AuthProvider({ children }) {
     setUserData(null);
   }, []);
 
-  const login = useCallback(async (token, user) => {
-    await saveToken(token);
-    setUserToken(token);
+  const login = useCallback(async (sessionOrToken, maybeUser) => {
+    const token = typeof sessionOrToken === 'string' ? sessionOrToken : (sessionOrToken?.accessToken || sessionOrToken?.token || null);
+    const refreshToken = typeof sessionOrToken === 'string' ? null : (sessionOrToken?.refreshToken || null);
+    const fallbackUser = sanitizeUser(typeof sessionOrToken === 'string' ? maybeUser : sessionOrToken?.user);
 
-    const fallbackUser = sanitizeUser(user);
+    await saveAuthSession({ token, accessToken: token, refreshToken, user: fallbackUser });
+    setUserToken(token);
 
     try {
       const response = await API.get('/users/me');
@@ -46,11 +48,22 @@ export function AuthProvider({ children }) {
     const checkToken = async () => {
       try {
         const token = await getToken();
+        const refreshToken = await getRefreshToken();
         const user = await getUser();
 
-        if (token) {
+          if (token || refreshToken) {
           setUserToken(token);
           setUserData(user);
+
+            if (!user && token) {
+              try {
+                const response = await API.get('/users/me');
+                const hydratedUser = sanitizeUser(response.data);
+                await updateUserData(hydratedUser);
+              } catch {
+                // interceptor may refresh or logout
+              }
+            }
         }
       } finally {
         setIsLoading(false);
@@ -58,10 +71,17 @@ export function AuthProvider({ children }) {
     };
 
     setOnTokenExpired(logout);
+    setOnAuthRefreshed(async (session) => {
+      setUserToken(session?.accessToken || session?.token || null);
+      if (session?.user) {
+        await updateUserData(session.user);
+      }
+    });
     checkToken();
 
     return () => {
       setOnTokenExpired(null);
+      setOnAuthRefreshed(null);
     };
   }, [logout]);
 

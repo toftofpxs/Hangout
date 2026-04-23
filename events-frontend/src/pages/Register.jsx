@@ -7,7 +7,7 @@ export default function Register() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const { register, login } = useContext(AuthContext)
+  const { register } = useContext(AuthContext)
   const toast = useToast()
   const nav = useNavigate()
 
@@ -15,7 +15,6 @@ export default function Register() {
     e.preventDefault()
     try {
       await register({ name, email, password })
-      await login({ email, password })
       nav('/')
     } catch (err) {
       const msg = err?.response?.data?.message || err?.response?.data?.error || err.message || 'Erreur inscription'

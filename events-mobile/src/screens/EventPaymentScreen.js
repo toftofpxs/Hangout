@@ -5,31 +5,22 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import API from '../api/axios';
 import ScreenBackground from '../components/ScreenBackground';
-import { useAuth } from '../context/AuthContext';
 import { checkoutEventPayment, getPaymentStatus } from '../services/paymentsService';
 import { formatDate } from '../utils/formatDate';
 import { colors, fonts, shadows } from '../theme';
 
 export default function EventPaymentScreen({ route, navigation }) {
   const eventId = Number(route.params?.eventId);
-  const { userData } = useAuth();
 
   const [event, setEvent] = useState(null);
   const [paymentStatus, setPaymentStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [form, setForm] = useState({
-    cardholder_name: userData?.name || '',
-    card_number: '4242 4242 4242 4242',
-    expiry: '12/30',
-    cvc: '123',
-  });
 
   const loadPage = useCallback(async () => {
     if (!eventId) {
@@ -65,14 +56,10 @@ export default function EventPaymentScreen({ route, navigation }) {
   const submitLabel = useMemo(() => {
     const price = Number(event?.price || 0);
     if (paymentStatus?.requiresPayment && !paymentStatus?.isPaid) {
-      return `Payer ${price.toFixed(2)} EUR`;
+      return `Confirmer le paiement de ${price.toFixed(2)} EUR`;
     }
     return 'Finaliser mon inscription';
   }, [event?.price, paymentStatus?.isPaid, paymentStatus?.requiresPayment]);
-
-  const updateField = (key, value) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
-  };
 
   const handleSubmit = async () => {
     if (submitting) return;
@@ -87,10 +74,7 @@ export default function EventPaymentScreen({ route, navigation }) {
       if (freshStatus?.requiresPayment && !freshStatus?.isPaid) {
         paymentResult = await checkoutEventPayment({
           event_id: eventId,
-          cardholder_name: form.cardholder_name,
-          card_number: form.card_number,
-          expiry: form.expiry,
-          cvc: form.cvc,
+          confirmPayment: true,
         });
       }
 
@@ -145,38 +129,12 @@ export default function EventPaymentScreen({ route, navigation }) {
 
       <View style={styles.panel}>
         <Text style={styles.title}>Paiement de l'événement</Text>
-        <Text style={styles.subtitle}>Complétez ce formulaire pour valider votre inscription.</Text>
+        <Text style={styles.subtitle}>Aucune donnée bancaire n'est stockée dans l'application. La validation ci-dessous confirme simplement le paiement simulé.</Text>
 
-        <TextInput
-          style={styles.input}
-          placeholder="Nom du porteur"
-          value={form.cardholder_name}
-          onChangeText={(value) => updateField('cardholder_name', value)}
-          autoCapitalize="words"
-        />
-
-        <TextInput
-          style={styles.input}
-          placeholder="Numéro de carte"
-          value={form.card_number}
-          onChangeText={(value) => updateField('card_number', value)}
-          keyboardType="number-pad"
-        />
-
-        <View style={styles.row}>
-          <TextInput
-            style={[styles.input, styles.halfInput]}
-            placeholder="Expiration"
-            value={form.expiry}
-            onChangeText={(value) => updateField('expiry', value)}
-          />
-          <TextInput
-            style={[styles.input, styles.halfInput]}
-            placeholder="CVC"
-            value={form.cvc}
-            onChangeText={(value) => updateField('cvc', value)}
-            keyboardType="number-pad"
-          />
+        <View style={styles.noticeBox}>
+          <Text style={styles.noticeText}>
+            En confirmant, vous validez le règlement de cet événement avant la création de votre inscription.
+          </Text>
         </View>
 
         <TouchableOpacity style={styles.submitButton} onPress={handleSubmit} disabled={submitting}>
@@ -253,29 +211,22 @@ const styles = StyleSheet.create({
     marginTop: 6,
     marginBottom: 14,
   },
+  noticeBox: {
+    backgroundColor: colors.successSoft,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 10,
+  },
+  noticeText: {
+    color: colors.success,
+    lineHeight: 20,
+  },
   sectionTitle: {
     color: colors.ink,
     fontSize: 18,
     fontWeight: '800',
     marginBottom: 10,
     fontFamily: fonts.heading,
-  },
-  input: {
-    backgroundColor: colors.panel,
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 11,
-    marginBottom: 10,
-    color: colors.ink,
-  },
-  row: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  halfInput: {
-    flex: 1,
   },
   submitButton: {
     marginTop: 4,

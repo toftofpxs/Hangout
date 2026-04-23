@@ -10,14 +10,40 @@ Le projet permet l'authentification, la creation d'evenements, les inscriptions,
 
 ## Installation et lancement
 
-## Acces a l'application
+### Prerequis globaux
 
-- Site web en production : https://events-hangout.com
-- Le site web est accessible soit via ce lien, soit via une installation locale.
-- Note : le site peut prendre environ 50 secondes au premier chargement, car l'hebergeur met l'application en veille (sleep) lorsqu'elle est inactive.
-- L'application mobile doit obligatoirement passer par une installation locale (Expo Go ou emulateur).
+- [Node.js](https://nodejs.org/) (v18 ou superieur recommande)
+- [Git](https://git-scm.com/)
+- [MySQL](https://www.mysql.com/) disponible et configure
+- [Expo Go](https://expo.dev/go) sur votre telephone (pour le mobile)
 
-### 1) Backend API
+---
+
+### Etape 1 — Cloner le depot
+
+```bash
+git clone https://github.com/Yncy0/ROOMIE-Admin-Dashboard.git
+cd Hangout
+```
+
+> Remplacez l'URL par celle du depot Git du projet si elle est differente.
+
+---
+
+### Etape 2 — Configurer les variables d'environnement
+
+Dans le dossier `events-backend-js`, copiez le fichier `.env.example` en `.env` et renseignez vos valeurs :
+
+```bash
+cd events-backend-js
+copy .env.example .env
+```
+
+Editez ensuite le fichier `.env` avec vos parametres de base de donnees, JWT, etc.
+
+---
+
+### Etape 3 — Lancer le Backend API
 
 ```bash
 cd events-backend-js
@@ -25,11 +51,13 @@ npm install
 npm run dev
 ```
 
-Prerequis :
-- MySQL disponible et configure
-- Variables d'environnement renseignees dans le fichier .env
+Le serveur API demarre sur le port defini dans le `.env` (par defaut `3000`).
 
-### 2) Frontend Web
+---
+
+### Etape 4 — Lancer le Frontend Web
+
+Dans un nouveau terminal :
 
 ```bash
 cd events-frontend
@@ -37,11 +65,13 @@ npm install
 npm run dev
 ```
 
-Acces web :
-- Production : https://events-hangout.com
-- Local : via le lancement Vite en developpement
+L'application web est accessible sur `http://localhost:5173` (ou le port indique par Vite).
 
-### 3) Application Mobile
+---
+
+### Etape 5 — Lancer l'Application Mobile
+
+Dans un nouveau terminal :
 
 ```bash
 cd events-mobile
@@ -49,8 +79,16 @@ npm install
 npm start
 ```
 
-Ensuite, lancer l'application via Expo Go ou un emulateur Android/iOS.
-Le mobile n'est pas accessible via un lien web public et doit etre installe/lance en local.
+Scannez le QR code avec **Expo Go** sur votre telephone, ou lancez un emulateur Android/iOS.
+
+---
+
+## Acces a l'application
+
+- Site web en production : https://events-hangout.com
+- Le site web est accessible soit via ce lien, soit via une installation locale.
+- Note : le site peut prendre environ 50 secondes au premier chargement, car l'hebergeur met l'application en veille (sleep) lorsqu'elle est inactive.
+- L'application mobile doit obligatoirement passer par une installation locale (Expo Go ou emulateur).
 
 ## Documentation complete
 

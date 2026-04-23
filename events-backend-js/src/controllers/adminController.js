@@ -1,6 +1,9 @@
 import { db } from "../db/index.js";
 import { users, events, inscriptions, payments } from "../db/schema.js";
 import { and, desc, eq, sql } from "drizzle-orm";
+import { writeAuditLog } from "../services/auditLogService.js";
+import { revokeAllUserSessions } from "../services/sessionService.js";
+import { UserModel } from "../models/userModel.js";
 
 const MANAGEABLE_ROLES_BY_ADMIN = ["participant", "organisateur", "admin"];
 const ALL_ROLES = ["participant", "organisateur", "admin", "super_user"];
@@ -93,6 +96,16 @@ export const listEventsSummary = async (req, res, next) => {
         photos: parsePhotos(row.photos),
       }))
     );
+
+    await writeAuditLog({
+      req,
+      actorUserId: req.user?.id,
+      actorRole: req.user?.role,
+      action: 'admin.events.summary.read',
+      targetType: 'event',
+      targetId: '*',
+      result: 'success',
+    });
   } catch (err) {
     next(err);
   }
@@ -111,6 +124,16 @@ export const listUsers = async (req, res, next) => {
       .orderBy(users.created_at);
 
     res.json(rows);
+
+    await writeAuditLog({
+      req,
+      actorUserId: req.user?.id,
+      actorRole: req.user?.role,
+      action: 'admin.users.list',
+      targetType: 'user',
+      targetId: '*',
+      result: 'success',
+    });
   } catch (err) {
     next(err);
   }
@@ -218,6 +241,16 @@ export const getUserStats = async (req, res, next) => {
       },
       recentOrganizedEvents,
     });
+
+    await writeAuditLog({
+      req,
+      actorUserId: req.user?.id,
+      actorRole: req.user?.role,
+      action: 'admin.user.stats.read',
+      targetType: 'user',
+      targetId: String(id),
+      result: 'success',
+    });
   } catch (err) {
     next(err);
   }
@@ -243,7 +276,19 @@ export const promoteUser = async (req, res, next) => {
     }
 
     await db.update(users).set({ role: 'admin' }).where(eq(users.id, id));
+    await UserModel.incrementTokenVersion(id);
+    await revokeAllUserSessions(id, 'role_changed_to_admin');
     const u = await db.select({ id: users.id, name: users.name, email: users.email, role: users.role }).from(users).where(eq(users.id, id)).then(r=>r[0]);
+    await writeAuditLog({
+      req,
+      actorUserId: req.user?.id,
+      actorRole: req.user?.role,
+      action: 'admin.user.promote',
+      targetType: 'user',
+      targetId: String(id),
+      result: 'success',
+      metadata: { newRole: 'admin' },
+    });
     res.json(u);
   } catch (err) { next(err); }
 };
@@ -269,7 +314,19 @@ export const demoteUser = async (req, res, next) => {
 
     // demote to participant
     await db.update(users).set({ role: 'participant' }).where(eq(users.id, id));
+    await UserModel.incrementTokenVersion(id);
+    await revokeAllUserSessions(id, 'role_changed_to_participant');
     const u = await db.select({ id: users.id, name: users.name, email: users.email, role: users.role }).from(users).where(eq(users.id, id)).then(r=>r[0]);
+    await writeAuditLog({
+      req,
+      actorUserId: req.user?.id,
+      actorRole: req.user?.role,
+      action: 'admin.user.demote',
+      targetType: 'user',
+      targetId: String(id),
+      result: 'success',
+      metadata: { newRole: 'participant' },
+    });
     res.json(u);
   } catch (err) { next(err); }
 };
@@ -316,11 +373,26 @@ export const updateUser = async (req, res, next) => {
     }
 
     await db.update(users).set(patch).where(eq(users.id, id));
+    if (patch.role) {
+      await UserModel.incrementTokenVersion(id);
+      await revokeAllUserSessions(id, `role_changed_to_${patch.role}`);
+    }
     const u = await db
       .select({ id: users.id, name: users.name, email: users.email, role: users.role, created_at: users.created_at })
       .from(users)
       .where(eq(users.id, id))
       .then((r) => r[0]);
+
+    await writeAuditLog({
+      req,
+      actorUserId: req.user?.id,
+      actorRole: req.user?.role,
+      action: 'admin.user.update',
+      targetType: 'user',
+      targetId: String(id),
+      result: 'success',
+      metadata: { fields: Object.keys(patch) },
+    });
 
     res.json(u);
   } catch (err) {
@@ -342,6 +414,8 @@ export const deleteUser = async (req, res, next) => {
       return res.status(403).json({ message: 'Only super_user can ban admin accounts' });
     }
 
+    await revokeAllUserSessions(id, 'user_deleted_by_admin');
+
     // delete user's inscriptions & payments
     await db.delete(inscriptions).where(eq(inscriptions.user_id, id));
     await db.delete(payments).where(eq(payments.user_id, id));
@@ -356,6 +430,16 @@ export const deleteUser = async (req, res, next) => {
 
     // finally delete user
     await db.delete(users).where(eq(users.id, id));
+
+    await writeAuditLog({
+      req,
+      actorUserId: req.user?.id,
+      actorRole: req.user?.role,
+      action: 'admin.user.delete',
+      targetType: 'user',
+      targetId: String(id),
+      result: 'success',
+    });
 
     res.status(204).end();
   } catch (err) { next(err); }

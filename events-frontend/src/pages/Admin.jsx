@@ -180,9 +180,8 @@ export default function Admin() {
       }
       toast.success('Utilisateur mis à jour.')
 
-      // Si je me modifie moi-même, on garde le localStorage synchronisé
       if (user?.id === targetId) {
-        localStorage.setItem('user', JSON.stringify(res.data))
+        sessionStorage.setItem('user', JSON.stringify(res.data))
       }
     } catch (err) {
       console.error(err)

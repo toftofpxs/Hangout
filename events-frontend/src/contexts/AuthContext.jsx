@@ -1,6 +1,15 @@
 import React, { createContext, useState, useEffect } from 'react'
-import { getToken, saveToken, removeToken, decodeToken, isTokenExpired } from '../utils/auth'
-import api from '../services/api'
+import {
+  clearAuthSession,
+  decodeToken,
+  getSessionUser,
+  getRefreshToken,
+  getToken,
+  isTokenExpired,
+  saveAuthSession,
+  saveSessionUser,
+} from '../utils/auth'
+import api, { setAuthSessionHandlers } from '../services/api'
 
 export const AuthContext = createContext()
 
@@ -9,72 +18,106 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const token = getToken()
-    const savedUser = localStorage.getItem('user')
-
     async function hydrate() {
       try {
-        if (!token || isTokenExpired(token)) {
-          removeToken()
-          localStorage.removeItem('user')
+        const token = getToken()
+        const refreshToken = getRefreshToken()
+        const savedUser = getSessionUser()
+
+        if (!token && !refreshToken) {
+          clearAuthSession()
           setUser(null)
           return
         }
 
-        // 1) Priorité à l'user complet stocké
+        if (!token || isTokenExpired(token)) {
+          if (!refreshToken) {
+            clearAuthSession()
+            setUser(null)
+            return
+          }
+
+          const refreshResponse = await api.post('/auth/refresh', { refreshToken })
+          saveAuthSession(refreshResponse.data)
+          const refreshedUser = refreshResponse.data.user || savedUser
+          if (refreshedUser) {
+            setUser({ ...refreshedUser, token: refreshResponse.data.accessToken || refreshResponse.data.token })
+            return
+          }
+        }
+
         if (savedUser) {
-          setUser({ ...JSON.parse(savedUser), token })
+          setUser({ ...savedUser, token: getToken() })
           return
         }
 
-        // 2) Sinon, demander le profil complet
-        const decoded = decodeToken(token)
+        const decoded = decodeToken(getToken())
         if (!decoded?.id) {
-          removeToken()
+          clearAuthSession()
           return
         }
 
         const res = await api.get('/users/me')
-        localStorage.setItem('user', JSON.stringify(res.data))
-        setUser({ ...res.data, token })
-      } catch (e) {
-        console.error('hydrate user error', e)
-        removeToken()
-        localStorage.removeItem('user')
+        saveSessionUser(res.data)
+        setUser({ ...res.data, token: getToken() })
+      } catch {
+        clearAuthSession()
         setUser(null)
       }
     }
 
+    setAuthSessionHandlers({
+      handleAuthFailure: async () => {
+        clearAuthSession()
+        setUser(null)
+      },
+      handleAuthRefresh: (session) => {
+        if (!session?.user) return
+        setUser({ ...session.user, token: session.accessToken || session.token })
+      },
+    })
+
     hydrate().finally(() => setLoading(false))
+
+    return () => {
+      setAuthSessionHandlers({})
+    }
   }, [])
 
   const login = async (credentials) => {
     try {
       const res = await api.post('/auth/login', credentials)
-      const { token, user } = res.data
-      saveToken(token)
-      localStorage.setItem('user', JSON.stringify(user))
-      setUser({ ...user, token })
+      const { token, accessToken, user } = res.data
+      saveAuthSession(res.data)
+      setUser({ ...user, token: accessToken || token })
       return user
     } catch (err) {
-      // propager l'erreur au composant (pour afficher le vrai message)
       throw err
     }
   }
 
-  // ✅ ajoute register : inscription + auto-connexion
   const register = async (payload) => {
     try {
       const res = await api.post('/auth/register', payload)
-      return res.data
+      saveAuthSession(res.data)
+      setUser({ ...res.data.user, token: res.data.accessToken || res.data.token })
+      return res.data.user
     } catch (err) {
       throw err
     }
   }
 
-  const logout = () => {
-    removeToken()
-    localStorage.removeItem('user')
+  const logout = async () => {
+    const token = getToken()
+    try {
+      if (token) {
+        await api.post('/auth/logout')
+      }
+    } catch {
+      // ignore logout failures, local clear still applies
+    }
+
+    clearAuthSession()
     setUser(null)
   }
 
@@ -82,13 +125,13 @@ export function AuthProvider({ children }) {
     setUser((prev) => {
       if (!prev) return prev
       const next = { ...prev, ...patch }
-      localStorage.setItem('user', JSON.stringify({
+      saveSessionUser({
         id: next.id,
         name: next.name,
         email: next.email,
         role: next.role,
         created_at: next.created_at,
-      }))
+      })
       return next
     })
   }

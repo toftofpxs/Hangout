@@ -1,6 +1,5 @@
-import React, { useContext, useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { AuthContext } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
 import { getEventById } from '../services/eventsService'
 import { checkoutEventPayment, getPaymentStatus } from '../services/paymentsService'
@@ -9,19 +8,12 @@ import api from '../services/api'
 export default function Payment() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { user } = useContext(AuthContext)
   const toast = useToast()
 
   const [event, setEvent] = useState(null)
   const [paymentStatus, setPaymentStatus] = useState(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
-  const [form, setForm] = useState({
-    cardholder_name: user?.name || '',
-    card_number: '4242 4242 4242 4242',
-    expiry: '12/30',
-    cvc: '123',
-  })
 
   useEffect(() => {
     let mounted = true
@@ -37,7 +29,7 @@ export default function Payment() {
         setPaymentStatus(statusData)
       } catch (err) {
         console.error(err)
-        if (mounted) toast.error("Impossible de charger la page de paiement.")
+        if (mounted) toast.error('Impossible de charger la page de paiement.')
       } finally {
         if (mounted) setLoading(false)
       }
@@ -48,10 +40,6 @@ export default function Payment() {
     }
   }, [id, toast])
 
-  const updateField = (key, value) => {
-    setForm((prev) => ({ ...prev, [key]: value }))
-  }
-
   const submit = async (e) => {
     e.preventDefault()
     try {
@@ -61,10 +49,7 @@ export default function Payment() {
       if (paymentStatus?.requiresPayment && !paymentStatus?.isPaid) {
         paymentResult = await checkoutEventPayment({
           event_id: Number(id),
-          cardholder_name: form.cardholder_name,
-          card_number: form.card_number,
-          expiry: form.expiry,
-          cvc: form.cvc,
+          confirmPayment: true,
         })
       }
 
@@ -90,7 +75,7 @@ export default function Payment() {
 
   const price = Number(event.price || 0)
   const submitLabel = paymentStatus?.requiresPayment && !paymentStatus?.isPaid
-    ? `Payer ${price.toFixed(2)} €`
+    ? `Confirmer le paiement de ${price.toFixed(2)} €`
     : 'Finaliser mon inscription'
 
   return (
@@ -100,58 +85,11 @@ export default function Payment() {
           Retour à l'événement
         </Link>
         <h1 className="text-2xl sm:text-3xl font-bold mt-3">Paiement de l'événement</h1>
-        <p className="mt-2 text-slate-600">Complète ce formulaire de paiement pour finaliser ton inscription.</p>
+        <p className="mt-2 text-slate-600">Aucune donnée bancaire n'est stockée dans l'application. La validation ci-dessous confirme simplement le paiement simulé.</p>
 
         <form onSubmit={submit} className="mt-6 space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Nom du porteur</label>
-            <input
-              value={form.cardholder_name}
-              onChange={(e) => updateField('cardholder_name', e.target.value)}
-              className="w-full border p-3 rounded-lg"
-              placeholder="Jean Dupont"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">Numéro de carte</label>
-            <input
-              value={form.card_number}
-              onChange={(e) => updateField('card_number', e.target.value)}
-              className="w-full border p-3 rounded-lg tracking-[0.12em] sm:tracking-[0.25em]"
-              placeholder="4242 4242 4242 4242"
-              inputMode="numeric"
-              required
-            />
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">Expiration</label>
-              <input
-                value={form.expiry}
-                onChange={(e) => updateField('expiry', e.target.value)}
-                className="w-full border p-3 rounded-lg"
-                placeholder="12/30"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">CVC</label>
-              <input
-                value={form.cvc}
-                onChange={(e) => updateField('cvc', e.target.value)}
-                className="w-full border p-3 rounded-lg"
-                placeholder="123"
-                inputMode="numeric"
-                required
-              />
-            </div>
-          </div>
-
           <div className="rounded-xl bg-slate-100 p-4 text-sm text-slate-700">
-            Une confirmation de paiement sera enregistrée.
+            En confirmant, vous validez le règlement de cet événement et autorisez la création de votre inscription.
           </div>
 
           <button

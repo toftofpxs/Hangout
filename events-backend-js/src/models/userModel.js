@@ -25,6 +25,7 @@ export const UserModel = {
       name: users.name,
       email: users.email,
       role: users.role,
+      token_version: users.token_version,
       created_at: users.created_at,
       // pas de password_hash ici
     }).from(users).where(eq(users.id, Number(id)))
@@ -39,6 +40,15 @@ export const UserModel = {
   async updatePassword(id, password_hash) {
     await db.update(users).set({ password_hash }).where(eq(users.id, Number(id)))
     return this.findById(Number(id))
+  },
+
+  async incrementTokenVersion(id) {
+    const user = await this.findByIdWithPassword(Number(id))
+    if (!user) return null
+
+    const nextVersion = Number(user.token_version || 0) + 1
+    await db.update(users).set({ token_version: nextVersion }).where(eq(users.id, Number(id)))
+    return nextVersion
   },
 
   async findAll() {

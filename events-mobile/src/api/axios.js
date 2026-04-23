@@ -1,5 +1,5 @@
 import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getRefreshToken, getToken, removeToken, saveAuthSession } from '../storage/tokenStorage';
 
 const DEFAULT_SERVER_URL = 'http://192.168.1.42:4000';
 
@@ -23,14 +23,58 @@ const API = axios.create({
 });
 
 let onTokenExpired = null;
+let onAuthRefreshed = null;
+let refreshPromise = null;
 
 export function setOnTokenExpired(callback) {
   onTokenExpired = callback;
 }
 
+export function setOnAuthRefreshed(callback) {
+  onAuthRefreshed = callback;
+}
+
+async function refreshAccessToken() {
+  if (refreshPromise) {
+    return refreshPromise;
+  }
+
+  const refreshToken = await getRefreshToken();
+  if (!refreshToken) {
+    throw new Error('Missing refresh token');
+  }
+
+  refreshPromise = axios.post(`${API_BASE_URL}/auth/refresh`, { refreshToken }, {
+    timeout: 20000,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(IS_LOCALTUNNEL ? { 'bypass-tunnel-reminder': 'true' } : {}),
+    },
+  })
+    .then(async (response) => {
+      await saveAuthSession(response.data);
+      if (typeof onAuthRefreshed === 'function') {
+        await onAuthRefreshed(response.data);
+      }
+      return response.data;
+    })
+    .catch(async (error) => {
+      await removeToken();
+      if (typeof onTokenExpired === 'function') {
+        await onTokenExpired(error);
+      }
+      throw error;
+    })
+    .finally(() => {
+      refreshPromise = null;
+    });
+
+  return refreshPromise;
+}
+
 API.interceptors.request.use(
   async (config) => {
-    const token = await AsyncStorage.getItem('userToken');
+    const token = await getToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -42,10 +86,26 @@ API.interceptors.request.use(
 API.interceptors.response.use(
   (response) => response,
   async (error) => {
+    const originalRequest = error?.config || {};
     const status = error?.response?.status;
     const message = error?.response?.data?.message;
     const shouldExpireSession =
       status === 401 || (status === 403 && String(message || '').toLowerCase() === 'invalid token');
+
+    const isRefreshRequest = /\/auth\/refresh$/i.test(String(originalRequest.url || ''));
+
+    if (shouldExpireSession && !originalRequest._retry && !isRefreshRequest) {
+      originalRequest._retry = true;
+
+      try {
+        const session = await refreshAccessToken();
+        originalRequest.headers = originalRequest.headers || {};
+        originalRequest.headers.Authorization = `Bearer ${session.accessToken || session.token}`;
+        return API(originalRequest);
+      } catch {
+        // handled below by expiration callback
+      }
+    }
 
     if (shouldExpireSession && typeof onTokenExpired === 'function') {
       await onTokenExpired();

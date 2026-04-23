@@ -16,6 +16,7 @@
     "axios": "^1.13.6",
     "expo": "~54.0.33",
     "expo-image-picker": "~17.0.10",
+    "expo-secure-store": "^55.0.12",
     "expo-status-bar": "~3.0.9",
     "react": "19.1.0",
     "react-dom": "19.1.0",

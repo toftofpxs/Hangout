@@ -1,6 +1,8 @@
 import express from 'express';
-import { register, login } from '../controllers/authController.js';
+import { register, login, refreshSession, logout, logoutAll, listSessions, revokeSession } from '../controllers/authController.js';
 import { validatePasswordMiddleware } from '../middleware/passwordValidator.js';
+import { authRateLimit } from '../middleware/rateLimit.js';
+import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -56,7 +58,7 @@ const router = express.Router();
  *       422:
  *         description: Erreur de validation
  */
-router.post('/register', validatePasswordMiddleware, register);
+router.post('/register', authRateLimit, validatePasswordMiddleware, register);
 
 /**
  * @swagger
@@ -104,7 +106,12 @@ router.post('/register', validatePasswordMiddleware, register);
  *       400:
  *         description: Données manquantes
  */
-router.post('/login', login);
-router.post('/signin', login);
+router.post('/login', authRateLimit, login);
+router.post('/signin', authRateLimit, login);
+router.post('/refresh', authRateLimit, refreshSession);
+router.post('/logout', authenticateToken, logout);
+router.post('/logout-all', authenticateToken, logoutAll);
+router.get('/sessions', authenticateToken, listSessions);
+router.delete('/sessions/:id', authenticateToken, revokeSession);
 
 export default router;

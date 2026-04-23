@@ -62,8 +62,7 @@ export default function LoginScreen({ navigation }) {
         }
       }
 
-      const { token, user } = response.data;
-      await login(token, user);
+      await login(response.data);
     } catch (error) {
       if (error.response) {
        

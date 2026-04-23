@@ -7,19 +7,7 @@ import {
   sendRefundConfirmationEmail,
 } from "../services/mailService.js";
 
-const validateCardPayload = ({ cardholder_name, card_number, expiry, cvc }) => {
-  const holderName = String(cardholder_name || "").trim();
-  const cardNumber = String(card_number || "").replace(/\s+/g, "");
-  const expiryValue = String(expiry || "").trim();
-  const cvcValue = String(cvc || "").trim();
-
-  if (!holderName) return "Nom du porteur requis";
-  if (!/^\d{13,19}$/.test(cardNumber)) return "Numéro de carte invalide";
-  if (!/^(0[1-9]|1[0-2])\/(\d{2}|\d{4})$/.test(expiryValue)) return "Date d'expiration invalide";
-  if (!/^\d{3,4}$/.test(cvcValue)) return "CVC invalide";
-
-  return null;
-};
+const ensureConfirmedPaymentIntent = (value) => value === true;
 
 export const createPayment = async (req, res, next) => {
   try {
@@ -78,9 +66,8 @@ export const createSimpleCheckout = async (req, res, next) => {
       return res.json({ requiresPayment: false, isFree: true, isPaid: true });
     }
 
-    const validationError = validateCardPayload(req.body);
-    if (validationError) {
-      return res.status(400).json({ message: validationError });
+    if (!ensureConfirmedPaymentIntent(req.body.confirmPayment)) {
+      return res.status(400).json({ message: "Payment confirmation is required" });
     }
 
     const payment = await PaymentModel.markPaid({
@@ -139,11 +126,8 @@ export const createCartCheckout = async (req, res, next) => {
       payableEvents.push(event);
     }
 
-    if (payableEvents.length > 0) {
-      const validationError = validateCardPayload(req.body);
-      if (validationError) {
-        return res.status(400).json({ message: validationError });
-      }
+    if (payableEvents.length > 0 && !ensureConfirmedPaymentIntent(req.body.confirmPayment)) {
+      return res.status(400).json({ message: "Payment confirmation is required" });
     }
 
     const paidEvents = [];

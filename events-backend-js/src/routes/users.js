@@ -2,10 +2,13 @@ import express from 'express'
 import bcrypt from 'bcryptjs'
 import { authenticateToken } from '../middleware/auth.js'
 import { requireRole } from '../middleware/roles.js'
+import { MIN_PASSWORD_LENGTH, validatePasswordStrength } from '../middleware/passwordValidator.js'
 import { UserModel } from '../models/userModel.js'
 import { db } from '../db/index.js'
 import { users } from '../db/schema.js'
 import { eq } from 'drizzle-orm'
+import { revokeAllUserSessions } from '../services/sessionService.js'
+import { writeAuditLog } from '../services/auditLogService.js'
 
 const router = express.Router()
 
@@ -32,8 +35,9 @@ router.put('/me/password', authenticateToken, async (req, res, next) => {
       return res.status(400).json({ message: 'Current password and new password are required' })
     }
 
-    if (newPassword.length < 6) {
-      return res.status(400).json({ message: 'New password must contain at least 6 characters' })
+    const passwordValidationMessage = validatePasswordStrength(newPassword)
+    if (passwordValidationMessage) {
+      return res.status(400).json({ message: passwordValidationMessage })
     }
 
     if (currentPassword === newPassword) {
@@ -50,6 +54,17 @@ router.put('/me/password', authenticateToken, async (req, res, next) => {
 
     const password_hash = await bcrypt.hash(newPassword, 10)
     await UserModel.updatePassword(id, password_hash)
+    await UserModel.incrementTokenVersion(id)
+    await revokeAllUserSessions(id, 'password_changed')
+    await writeAuditLog({
+      req,
+      actorUserId: id,
+      actorRole: req.user?.role,
+      action: 'user.password.change',
+      targetType: 'user',
+      targetId: String(id),
+      result: 'success',
+    })
 
     return res.json({ message: 'Password updated successfully' })
   } catch (e) { next(e) }
@@ -91,6 +106,10 @@ router.put('/me', authenticateToken, async (req, res, next) => {
     const { name } = req.body
     if (!name || typeof name !== 'string' || name.trim() === '') {
       return res.status(400).json({ message: 'Name is required' })
+    }
+
+    if (name.trim().length < 2 || name.trim().length > 80) {
+      return res.status(400).json({ message: 'Name must contain between 2 and 80 characters' })
     }
 
     await db.update(users).set({ name: name.trim() }).where(eq(users.id, id))

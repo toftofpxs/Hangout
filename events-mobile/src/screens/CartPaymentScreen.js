@@ -5,30 +5,21 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import ScreenBackground from '../components/ScreenBackground';
-import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { createBulkInscriptions } from '../services/inscriptionsService';
 import { checkoutCartPayment, getPaymentStatus } from '../services/paymentsService';
 import { colors, fonts, shadows } from '../theme';
 
 export default function CartPaymentScreen({ navigation }) {
-  const { userData } = useAuth();
   const { items, removeManyFromCart } = useCart();
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [statuses, setStatuses] = useState({});
-  const [form, setForm] = useState({
-    cardholder_name: userData?.name || '',
-    card_number: '4242 4242 4242 4242',
-    expiry: '12/30',
-    cvc: '123',
-  });
 
   const refreshStatuses = useCallback(async () => {
     if (!items.length) {
@@ -90,11 +81,7 @@ export default function CartPaymentScreen({ navigation }) {
     [payableItems, statuses]
   );
 
-  const updateField = (key, value) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
-  };
-
-  const submitLabel = totalDue > 0 ? `Payer ${totalDue.toFixed(2)} EUR` : 'Finaliser les inscriptions';
+  const submitLabel = totalDue > 0 ? `Confirmer le paiement de ${totalDue.toFixed(2)} EUR` : 'Finaliser les inscriptions';
 
   const handleSubmit = async () => {
     if (submitting) return;
@@ -112,10 +99,7 @@ export default function CartPaymentScreen({ navigation }) {
       if (payableEventIds.length > 0) {
         paymentResult = await checkoutCartPayment({
           event_ids: payableEventIds,
-          cardholder_name: form.cardholder_name,
-          card_number: form.card_number,
-          expiry: form.expiry,
-          cvc: form.cvc,
+          confirmPayment: true,
         });
       }
 
@@ -190,38 +174,12 @@ export default function CartPaymentScreen({ navigation }) {
 
       <View style={styles.panel}>
         <Text style={styles.title}>Paiement du panier</Text>
-        <Text style={styles.subtitle}>Un paiement unique, puis inscription groupée automatique.</Text>
+        <Text style={styles.subtitle}>Aucune donnée bancaire n'est stockée dans l'application. La validation ci-dessous confirme le paiement simulé du panier.</Text>
 
-        <TextInput
-          style={styles.input}
-          placeholder="Nom du porteur"
-          value={form.cardholder_name}
-          onChangeText={(value) => updateField('cardholder_name', value)}
-          autoCapitalize="words"
-        />
-
-        <TextInput
-          style={styles.input}
-          placeholder="Numéro de carte"
-          value={form.card_number}
-          onChangeText={(value) => updateField('card_number', value)}
-          keyboardType="number-pad"
-        />
-
-        <View style={styles.row}>
-          <TextInput
-            style={[styles.input, styles.halfInput]}
-            placeholder="Expiration"
-            value={form.expiry}
-            onChangeText={(value) => updateField('expiry', value)}
-          />
-          <TextInput
-            style={[styles.input, styles.halfInput]}
-            placeholder="CVC"
-            value={form.cvc}
-            onChangeText={(value) => updateField('cvc', value)}
-            keyboardType="number-pad"
-          />
+        <View style={styles.noticeBox}>
+          <Text style={styles.noticeText}>
+            En confirmant, vous validez un paiement unique pour les événements payants du panier puis la création des inscriptions associées.
+          </Text>
         </View>
 
         <TouchableOpacity style={styles.submitButton} onPress={handleSubmit} disabled={submitting}>
@@ -317,22 +275,15 @@ const styles = StyleSheet.create({
     marginTop: 5,
     marginBottom: 12,
   },
-  input: {
-    backgroundColor: colors.panel,
-    borderWidth: 1,
-    borderColor: colors.line,
+  noticeBox: {
+    backgroundColor: colors.successSoft,
     borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 11,
+    padding: 14,
     marginBottom: 10,
-    color: colors.ink,
   },
-  row: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  halfInput: {
-    flex: 1,
+  noticeText: {
+    color: colors.success,
+    lineHeight: 20,
   },
   submitButton: {
     marginTop: 4,

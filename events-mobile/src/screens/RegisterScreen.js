@@ -58,8 +58,7 @@ export default function RegisterScreen({ navigation }) {
         password,
       });
 
-      const { token, user } = response.data;
-      await login(token, user);
+      await login(response.data);
     } catch (error) {
       if (error.response) {
         Alert.alert('Echec inscription', error.response.data?.message || `Erreur serveur (${error.response.status})`);

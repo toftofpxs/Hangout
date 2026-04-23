@@ -1,6 +1,7 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
+import helmet from 'helmet';
 import swaggerUi from 'swagger-ui-express';
 import { specs } from './swagger.js';
 import authRoutes from './routes/auth.js';
@@ -14,22 +15,23 @@ import cron from 'node-cron';
 import adminRoutes from "./routes/admin.js";
 import path from 'path';
 import { fileURLToPath } from 'url';
-import fs from "fs";
+import { apiRateLimit } from './middleware/rateLimit.js';
+import { requestContext } from './middleware/requestContext.js';
 
+dotenv.config();
 
 
 // Chaque jour à 3h du matin
 cron.schedule('0 3 * * *', async () => {
-  console.log("🧹 Nettoyage des anciens événements...");
   await EventModel.deleteExpiredEvents();
 });
 
 
-dotenv.config();
 const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, '..');
+const isProduction = process.env.NODE_ENV === 'production';
 
 const ensureEventEndDateColumn = async () => {
   const [rows] = await pool.query(
@@ -45,7 +47,6 @@ const ensureEventEndDateColumn = async () => {
 
   if (!rows.length) {
     await pool.query('ALTER TABLE events ADD COLUMN end_date DATETIME NULL AFTER date');
-    console.log('✅ Colonne end_date ajoutée sur events');
   }
 };
 
@@ -53,6 +54,66 @@ const ensureUsersRoleEnum = async () => {
   await pool.query(
     "ALTER TABLE users MODIFY COLUMN role ENUM('super_user','admin','organisateur','participant') DEFAULT 'participant'"
   );
+};
+
+const ensureUserTokenVersionColumn = async () => {
+  const [rows] = await pool.query(
+    `
+      SELECT 1
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'users'
+        AND COLUMN_NAME = 'token_version'
+      LIMIT 1
+    `
+  );
+
+  if (!rows.length) {
+    await pool.query('ALTER TABLE users ADD COLUMN token_version INT NOT NULL DEFAULT 0 AFTER role');
+  }
+};
+
+const ensureAuthSecurityTables = async () => {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS auth_sessions (
+      id VARCHAR(36) PRIMARY KEY,
+      session_family VARCHAR(36) NOT NULL,
+      user_id INT NOT NULL,
+      refresh_token_hash VARCHAR(128) NOT NULL,
+      user_agent VARCHAR(255) NULL,
+      ip_address VARCHAR(64) NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      last_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      expires_at DATETIME NOT NULL,
+      revoked_at DATETIME NULL,
+      revoke_reason VARCHAR(120) NULL,
+      CONSTRAINT auth_sessions_user_fk FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      UNIQUE KEY auth_sessions_refresh_hash_unique (refresh_token_hash),
+      KEY auth_sessions_user_idx (user_id),
+      KEY auth_sessions_family_idx (session_family)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      actor_user_id INT NULL,
+      actor_role VARCHAR(32) NULL,
+      action VARCHAR(120) NOT NULL,
+      target_type VARCHAR(80) NULL,
+      target_id VARCHAR(120) NULL,
+      result ENUM('success','failure','denied') NOT NULL DEFAULT 'success',
+      ip_address VARCHAR(64) NULL,
+      user_agent VARCHAR(255) NULL,
+      request_id VARCHAR(64) NULL,
+      metadata_json TEXT NULL,
+      occurred_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT audit_logs_actor_fk FOREIGN KEY (actor_user_id) REFERENCES users(id) ON DELETE SET NULL,
+      KEY audit_logs_actor_idx (actor_user_id),
+      KEY audit_logs_action_idx (action),
+      KEY audit_logs_occurred_idx (occurred_at)
+    )
+  `);
 };
 
 const ensureConfiguredSuperUser = async () => {
@@ -67,20 +128,13 @@ const ensureConfiguredSuperUser = async () => {
 
 
 const uploadsDir = path.join(projectRoot, "uploads");
+app.disable('x-powered-by');
+app.set('trust proxy', process.env.TRUST_PROXY === 'true' ? 1 : false);
 
-console.log("📁 uploadsDir =", uploadsDir);
-console.log("📁 uploads exists?", fs.existsSync(uploadsDir));
-if (fs.existsSync(uploadsDir)) {
-  console.log("📄 uploads files:", fs.readdirSync(uploadsDir).slice(0, 20));
-}
-
-app.use("/uploads", express.static(uploadsDir));
-app.get("/health", (req, res) => res.json({ ok: true, uploadsDir }));
-
-
-
-// ✅ route test (pour vérifier que le serveur répond)
-app.get('/health', (req, res) => res.json({ ok: true }));
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+}));
 
 
 
@@ -117,8 +171,18 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
+app.use(requestContext);
 
-app.use(express.json());
+app.use(express.json({ limit: '100kb' }));
+app.use(express.urlencoded({ extended: false, limit: '100kb' }));
+app.use('/uploads', express.static(uploadsDir, {
+  fallthrough: false,
+  index: false,
+  maxAge: isProduction ? '1d' : 0,
+}));
+
+app.get('/health', (req, res) => res.json({ ok: true }));
+app.use('/api', apiRateLimit);
 
 // 📚 Documentation Swagger
 app.use('/api-docs', swaggerUi.serve)
@@ -133,8 +197,21 @@ app.use('/api/payments', paymentRoutes);
 
 // Error handler
 app.use((err, req, res, next) => {
-  console.error(err);
-  res.status(err.status || 500).json({ error: err.message || 'Server error' });
+  const statusCode = Number(err.status || err.statusCode || 500)
+
+  if (!isProduction) {
+    console.error(err)
+  } else if (statusCode >= 500) {
+    console.error(`[${req.method} ${req.originalUrl}]`, err.message)
+  }
+
+  if (err.name === 'MulterError') {
+    return res.status(400).json({ error: 'Invalid file upload.' })
+  }
+
+  const isSafeClientError = statusCode >= 400 && statusCode < 500
+  const message = isSafeClientError ? (err.message || 'Request error') : 'Server error'
+  res.status(statusCode).json({ error: message })
 });
 
 // 📤 Exporter l'app pour les tests
@@ -144,8 +221,14 @@ const PORT = process.env.PORT || 4000;
 
 const startServer = async () => {
   try {
+    if (!process.env.JWT_SECRET) {
+      throw new Error('JWT_SECRET is required')
+    }
+
     await ensureUsersRoleEnum();
+    await ensureUserTokenVersionColumn();
     await ensureEventEndDateColumn();
+    await ensureAuthSecurityTables();
     await ensureConfiguredSuperUser();
     app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
   } catch (err) {

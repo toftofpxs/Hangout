@@ -1,40 +1,98 @@
 // services/api.js
-import axios from 'axios';
+import axios from 'axios'
+import { clearAuthSession, getRefreshToken, getToken, saveAuthSession } from '../utils/auth'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api'
+
+let refreshPromise = null
+let onAuthFailure = null
+let onAuthRefresh = null
+
+export const setAuthSessionHandlers = ({ handleAuthFailure, handleAuthRefresh } = {}) => {
+  onAuthFailure = handleAuthFailure || null
+  onAuthRefresh = handleAuthRefresh || null
+}
+
+const refreshAccessToken = async () => {
+  if (refreshPromise) {
+    return refreshPromise
+  }
+
+  const refreshToken = getRefreshToken()
+  if (!refreshToken) {
+    throw new Error('Missing refresh token')
+  }
+
+  refreshPromise = axios.post(`${API_URL}/auth/refresh`, { refreshToken }, {
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  })
+    .then((response) => {
+      saveAuthSession(response.data)
+      if (typeof onAuthRefresh === 'function') {
+        onAuthRefresh(response.data)
+      }
+      return response.data
+    })
+    .catch(async (error) => {
+      clearAuthSession()
+      if (typeof onAuthFailure === 'function') {
+        await onAuthFailure(error)
+      }
+      throw error
+    })
+    .finally(() => {
+      refreshPromise = null
+    })
+
+  return refreshPromise
+}
 
 const api = axios.create({
   baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
-});
+})
 
-// Intercepteur pour ajouter le token aux requêtes
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    const token = getToken()
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+      config.headers.Authorization = `Bearer ${token}`
     }
-    return config;
+    return config
   },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
+  (error) => Promise.reject(error)
+)
 
-// Intercepteur pour gérer les erreurs d'authentification
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      // Token expiré ou invalide
-      localStorage.removeItem('token');
-      window.location.href = '/login';
-    }
-    return Promise.reject(error);
-  }
-);
+  async (error) => {
+    const originalRequest = error.config || {}
+    const isRefreshRequest = /\/auth\/refresh$/i.test(String(originalRequest.url || ''))
 
-export default api;
+    if (error.response?.status === 401 && !originalRequest._retry && !isRefreshRequest) {
+      originalRequest._retry = true
+
+      try {
+        const refreshedSession = await refreshAccessToken()
+        originalRequest.headers = originalRequest.headers || {}
+        originalRequest.headers.Authorization = `Bearer ${refreshedSession.accessToken || refreshedSession.token}`
+        return api(originalRequest)
+      } catch {
+        clearAuthSession()
+        window.location.href = '/login'
+      }
+    }
+
+    if (error.response?.status === 401 && isRefreshRequest) {
+      clearAuthSession()
+      window.location.href = '/login'
+    }
+    return Promise.reject(error)
+  }
+)
+
+export default api

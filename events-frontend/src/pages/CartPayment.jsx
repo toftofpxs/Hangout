@@ -1,6 +1,5 @@
-import React, { useContext, useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { AuthContext } from '../contexts/AuthContext'
 import { useCart } from '../contexts/CartContext'
 import { useToast } from '../contexts/ToastContext'
 import { createBulkInscriptions } from '../services/inscriptionsService'
@@ -8,19 +7,12 @@ import { checkoutCartPayment, getPaymentStatus } from '../services/paymentsServi
 
 export default function CartPayment() {
   const navigate = useNavigate()
-  const { user } = useContext(AuthContext)
   const { items, removeManyFromCart, clearCart } = useCart()
   const toast = useToast()
 
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [statuses, setStatuses] = useState({})
-  const [form, setForm] = useState({
-    cardholder_name: user?.name || '',
-    card_number: '4242 4242 4242 4242',
-    expiry: '12/30',
-    cvc: '123',
-  })
 
   useEffect(() => {
     let mounted = true
@@ -64,10 +56,6 @@ export default function CartPayment() {
     [payableItems, statuses]
   )
 
-  const updateField = (key, value) => {
-    setForm((prev) => ({ ...prev, [key]: value }))
-  }
-
   const submit = async (e) => {
     e.preventDefault()
     try {
@@ -77,10 +65,7 @@ export default function CartPayment() {
       if (payableItems.length > 0) {
         paymentResult = await checkoutCartPayment({
           event_ids: payableItems.map((item) => item.id),
-          cardholder_name: form.cardholder_name,
-          card_number: form.card_number,
-          expiry: form.expiry,
-          cvc: form.cvc,
+          confirmPayment: true,
         })
       }
 
@@ -139,58 +124,11 @@ export default function CartPayment() {
           Retour au panier
         </Link>
         <h1 className="text-2xl sm:text-3xl font-bold mt-3">Paiement du panier</h1>
-        <p className="mt-2 text-slate-600">Réglez tous vos événements en une seule fois, puis vos inscriptions seront finalisées automatiquement.</p>
+        <p className="mt-2 text-slate-600">Aucune donnée bancaire n'est stockée dans l'application. La validation ci-dessous confirme le paiement simulé du panier.</p>
 
         <form onSubmit={submit} className="mt-6 space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Nom du porteur</label>
-            <input
-              value={form.cardholder_name}
-              onChange={(e) => updateField('cardholder_name', e.target.value)}
-              className="w-full border p-3 rounded-lg"
-              placeholder="Jean Dupont"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">Numéro de carte</label>
-            <input
-              value={form.card_number}
-              onChange={(e) => updateField('card_number', e.target.value)}
-              className="w-full border p-3 rounded-lg tracking-[0.12em] sm:tracking-[0.25em]"
-              placeholder="4242 4242 4242 4242"
-              inputMode="numeric"
-              required={payableItems.length > 0}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">Expiration</label>
-              <input
-                value={form.expiry}
-                onChange={(e) => updateField('expiry', e.target.value)}
-                className="w-full border p-3 rounded-lg"
-                placeholder="12/30"
-                required={payableItems.length > 0}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">CVC</label>
-              <input
-                value={form.cvc}
-                onChange={(e) => updateField('cvc', e.target.value)}
-                className="w-full border p-3 rounded-lg"
-                placeholder="123"
-                inputMode="numeric"
-                required={payableItems.length > 0}
-              />
-            </div>
-          </div>
-
           <div className="rounded-xl bg-slate-100 p-4 text-sm text-slate-700">
-            Une confirmation de paiement sera enregistrée pour l'ensemble du panier.
+            En confirmant, vous validez le règlement des événements payants du panier puis la création des inscriptions associées.
           </div>
 
           <button
@@ -198,7 +136,7 @@ export default function CartPayment() {
             disabled={submitting}
             className="w-full rounded-xl bg-emerald-600 px-4 py-3 font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
           >
-            {submitting ? 'Validation en cours...' : totalDue > 0 ? `Payer ${totalDue.toFixed(2)} €` : 'Finaliser les inscriptions'}
+            {submitting ? 'Validation en cours...' : totalDue > 0 ? `Confirmer le paiement de ${totalDue.toFixed(2)} €` : 'Finaliser les inscriptions'}
           </button>
         </form>
       </section>
