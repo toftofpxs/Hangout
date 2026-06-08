@@ -10,6 +10,8 @@ import Organizer from '../pages/Organizer';
 import Cart from '../pages/Cart';
 import CartPayment from '../pages/CartPayment';
 import Payment from '../pages/Payment';
+import PaymentSuccess from '../pages/PaymentSuccess';
+import PaymentCancel from '../pages/PaymentCancel';
 import EventDetails from '../components/EventDetails';
 
 const AppRoutes = () => {
@@ -38,6 +40,22 @@ const AppRoutes = () => {
           element={
             <PrivateRoute>
               <Payment />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/success"
+          element={
+            <PrivateRoute>
+              <PaymentSuccess />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/cancel"
+          element={
+            <PrivateRoute>
+              <PaymentCancel />
             </PrivateRoute>
           }
         />

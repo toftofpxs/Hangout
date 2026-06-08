@@ -174,8 +174,23 @@ app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
 app.use(requestContext);
 
-app.use(express.json({ limit: '100kb' }));
-app.use(express.urlencoded({ extended: false, limit: '100kb' }));
+const jsonParser = express.json({ limit: '100kb' });
+const urlencodedParser = express.urlencoded({ extended: false, limit: '100kb' });
+const isStripeWebhookRoute = (req) => req.originalUrl.startsWith('/api/payments/webhook');
+
+app.use((req, res, next) => {
+  if (isStripeWebhookRoute(req)) {
+    return next();
+  }
+  return jsonParser(req, res, next);
+});
+
+app.use((req, res, next) => {
+  if (isStripeWebhookRoute(req)) {
+    return next();
+  }
+  return urlencodedParser(req, res, next);
+});
 app.use('/uploads', express.static(uploadsDir, {
   fallthrough: false,
   index: false,

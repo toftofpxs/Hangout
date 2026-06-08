@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useToast } from '../contexts/ToastContext'
 import { getEventById } from '../services/eventsService'
-import { checkoutEventPayment, getPaymentStatus } from '../services/paymentsService'
+import { createStripeCheckoutSession, getPaymentStatus } from '../services/paymentsService'
 import api from '../services/api'
 
 export default function Payment() {
@@ -45,21 +45,19 @@ export default function Payment() {
     try {
       setSubmitting(true)
 
-      let paymentResult = { emailSent: false }
       if (paymentStatus?.requiresPayment && !paymentStatus?.isPaid) {
-        paymentResult = await checkoutEventPayment({
-          event_id: Number(id),
-          confirmPayment: true,
-        })
+        const checkoutSession = await createStripeCheckoutSession(Number(id))
+        if (!checkoutSession?.checkoutUrl) {
+          throw new Error('Impossible de creer la session Stripe Checkout.')
+        }
+
+        window.location.assign(checkoutSession.checkoutUrl)
+        return
       }
 
       await api.post('/inscriptions', { event_id: Number(id) })
 
-      if (paymentResult.emailSent) {
-        toast.success('Paiement validé et email de confirmation envoyé.')
-      } else {
-        toast.success('Paiement validé et inscription confirmée.')
-      }
+      toast.success('Inscription confirmée.')
 
       navigate('/dashboard')
     } catch (err) {
@@ -85,11 +83,11 @@ export default function Payment() {
           Retour à l'événement
         </Link>
         <h1 className="text-2xl sm:text-3xl font-bold mt-3">Paiement de l'événement</h1>
-        <p className="mt-2 text-slate-600">Aucune donnée bancaire n'est stockée dans l'application. La validation ci-dessous confirme simplement le paiement simulé.</p>
+        <p className="mt-2 text-slate-600">Vous allez etre redirige vers Stripe Checkout en mode test. Aucune carte reelle n'est debitee.</p>
 
         <form onSubmit={submit} className="mt-6 space-y-4">
           <div className="rounded-xl bg-slate-100 p-4 text-sm text-slate-700">
-            En confirmant, vous validez le règlement de cet événement et autorisez la création de votre inscription.
+            Le paiement de l'evenement sera confirme uniquement apres verification du webhook Stripe cote serveur.
           </div>
 
           <button
