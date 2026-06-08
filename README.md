@@ -3,6 +3,14 @@
 Hangout est une solution complete de gestion d'evenements avec un backend API, une application web et une application mobile.
 Le projet permet l'authentification, la creation d'evenements, les inscriptions, les paiements (fictif) et l'administration des utilisateurs.
 
+
+## Acces a l'application
+
+- Site web en production : https://events-hangout.com
+- Le site web est accessible soit via ce lien, soit via une installation locale.
+- Note : le site peut prendre environ 50 secondes au premier chargement, car l'hebergeur met l'application en veille (sleep) lorsqu'elle est inactive.
+- L'application mobile doit obligatoirement passer par une installation locale (Expo Go ou emulateur).
+
 ## Identifiants de test
 
 - Admin : jury_test_admin@test.com / MotDePasse123!
@@ -107,12 +115,7 @@ Scannez le QR code avec **Expo Go** sur votre telephone, ou lancez un emulateur 
 
 ---
 
-## Acces a l'application
 
-- Site web en production : https://events-hangout.com
-- Le site web est accessible soit via ce lien, soit via une installation locale.
-- Note : le site peut prendre environ 50 secondes au premier chargement, car l'hebergeur met l'application en veille (sleep) lorsqu'elle est inactive.
-- L'application mobile doit obligatoirement passer par une installation locale (Expo Go ou emulateur).
 
 ## Documentation complete
 
