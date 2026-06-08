@@ -8,11 +8,19 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import * as Linking from 'expo-linking';
+import * as WebBrowser from 'expo-web-browser';
 import ScreenBackground from '../components/ScreenBackground';
 import { useCart } from '../context/CartContext';
 import { createBulkInscriptions } from '../services/inscriptionsService';
-import { checkoutCartPayment, getPaymentStatus } from '../services/paymentsService';
+import {
+  confirmStripeCartCheckout,
+  createStripeCartCheckoutSession,
+  getPaymentStatus,
+} from '../services/paymentsService';
 import { colors, fonts, shadows } from '../theme';
+
+WebBrowser.maybeCompleteAuthSession();
 
 export default function CartPaymentScreen({ navigation }) {
   const { items, removeManyFromCart } = useCart();
@@ -97,10 +105,50 @@ export default function CartPaymentScreen({ navigation }) {
 
       let paymentResult = { emailSent: false };
       if (payableEventIds.length > 0) {
-        paymentResult = await checkoutCartPayment({
-          event_ids: payableEventIds,
-          confirmPayment: true,
+        const redirectBase = Linking.createURL('cart-payment-return');
+        const successUrl = `${redirectBase}?status=success`;
+        const cancelUrl = `${redirectBase}?status=cancel`;
+
+        const checkoutSession = await createStripeCartCheckoutSession({
+          eventIds: payableEventIds,
+          successUrl,
+          cancelUrl,
         });
+
+        if (!checkoutSession?.checkoutUrl) {
+          throw new Error('Impossible de creer la session Stripe Checkout du panier.');
+        }
+
+        const browserResult = await WebBrowser.openAuthSessionAsync(
+          checkoutSession.checkoutUrl,
+          redirectBase
+        );
+
+        if (browserResult.type !== 'success' || !browserResult.url) {
+          Alert.alert('Paiement annulé', 'Le paiement du panier a été annulé ou interrompu.');
+          return;
+        }
+
+        const parsed = Linking.parse(browserResult.url);
+        const status = String(parsed.queryParams?.status || '').toLowerCase();
+
+        if (status !== 'success') {
+          Alert.alert('Paiement annulé', 'Aucun paiement panier n\'a ete valide.');
+          return;
+        }
+
+        const sessionId = String(parsed.queryParams?.session_id || '').trim();
+        if (!sessionId) {
+          throw new Error('Session Stripe panier introuvable au retour du paiement.');
+        }
+
+        const allEventIds = items.map((item) => Number(item.id));
+        await confirmStripeCartCheckout({
+          sessionId,
+          eventIds: allEventIds,
+        });
+
+        paymentResult = { emailSent: true };
       }
 
       const inscriptionResult = await createBulkInscriptions(items.map((item) => Number(item.id)));

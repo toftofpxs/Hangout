@@ -15,6 +15,37 @@ import {
 
 const ensureConfirmedPaymentIntent = (value) => value === true;
 
+const ensureQueryParam = (url, key, value) => {
+  if (!url || !key || value == null) return url;
+  const already = new RegExp(`([?&])${key}=`).test(url);
+  if (already) return url;
+  const separator = url.includes("?") ? "&" : "?";
+  return `${url}${separator}${key}=${value}`;
+};
+
+const normalizeEventIds = (rawEventIds) => {
+  const list = Array.isArray(rawEventIds) ? rawEventIds : [];
+  return [...new Set(list.map((value) => Number(value)).filter((value) => Number.isFinite(value) && value > 0))];
+};
+
+const isAllowedCheckoutRedirectUrl = ({ url, frontendUrl, mobileScheme }) => {
+  if (!url) return false;
+
+  if (frontendUrl && url.startsWith(frontendUrl)) {
+    return true;
+  }
+
+  if (mobileScheme && url.startsWith(`${mobileScheme}://`)) {
+    return true;
+  }
+
+  if (/^exp(s)?:\/\//i.test(url)) {
+    return true;
+  }
+
+  return false;
+};
+
 export const createPayment = async (req, res, next) => {
   try {
     const { event_id, amount } = req.body;
@@ -91,13 +122,36 @@ export const createSimpleCheckout = async (req, res, next) => {
 
     const requestOrigin = typeof req.headers.origin === "string" ? req.headers.origin : "";
     const frontendUrl = requestOrigin || process.env.FRONTEND_URL || "http://localhost:5173";
+    const mobileScheme = String(process.env.MOBILE_APP_SCHEME || "hangout").trim();
+
+    const requestedSuccessUrl = typeof req.body?.success_url === "string" ? req.body.success_url.trim() : "";
+    const requestedCancelUrl = typeof req.body?.cancel_url === "string" ? req.body.cancel_url.trim() : "";
+
+    if (requestedSuccessUrl && !isAllowedCheckoutRedirectUrl({ url: requestedSuccessUrl, frontendUrl, mobileScheme })) {
+      return res.status(400).json({ message: "success_url non autorisee" });
+    }
+
+    if (requestedCancelUrl && !isAllowedCheckoutRedirectUrl({ url: requestedCancelUrl, frontendUrl, mobileScheme })) {
+      return res.status(400).json({ message: "cancel_url non autorisee" });
+    }
+
+    const defaultSuccessUrl = `${frontendUrl}/success`;
+    const defaultCancelUrl = `${frontendUrl}/cancel`;
+
+    let successUrl = requestedSuccessUrl || defaultSuccessUrl;
+    let cancelUrl = requestedCancelUrl || defaultCancelUrl;
+
+    successUrl = ensureQueryParam(successUrl, "session_id", "{CHECKOUT_SESSION_ID}");
+    successUrl = ensureQueryParam(successUrl, "event_id", String(event.id));
+    cancelUrl = ensureQueryParam(cancelUrl, "event_id", String(event.id));
+
     const eventAmountCents = toStripeAmountCents(price);
     const user = await UserModel.findById(user_id);
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
-      success_url: `${frontendUrl}/success?session_id={CHECKOUT_SESSION_ID}&event_id=${event.id}`,
-      cancel_url: `${frontendUrl}/cancel?event_id=${event.id}`,
+      success_url: successUrl,
+      cancel_url: cancelUrl,
       metadata: {
         user_id: String(user_id),
         event_id: String(event.id),
@@ -369,6 +423,224 @@ export const createCartCheckout = async (req, res, next) => {
       emailSkipped: !!emailResult.skipped,
     });
   } catch (err) {
+    next(err);
+  }
+};
+
+export const createCartStripeCheckoutSession = async (req, res, next) => {
+  try {
+    ensureStripeConfigured();
+    const stripe = getStripeClient();
+
+    const user_id = Number(req.user.id);
+    const eventIds = normalizeEventIds(req.body.event_ids);
+
+    if (!eventIds.length) {
+      return res.status(400).json({ message: "Aucun événement à payer" });
+    }
+
+    const events = await Promise.all(eventIds.map((eventId) => EventModel.findById(eventId)));
+    if (events.some((event) => !event)) {
+      return res.status(404).json({ message: "Un ou plusieurs événements sont introuvables" });
+    }
+
+    const payableEvents = [];
+    for (const event of events) {
+      const price = Number(event.price ?? 0);
+      if (!Number.isFinite(price) || price <= 0) continue;
+
+      const existing = await PaymentModel.findPaidByUserAndEvent(user_id, event.id);
+      if (existing) continue;
+
+      payableEvents.push(event);
+    }
+
+    if (!payableEvents.length) {
+      return res.json({
+        requiresPayment: false,
+        isPaid: true,
+        isFreeCart: true,
+        payableEventIds: [],
+      });
+    }
+
+    if (!ensureConfirmedPaymentIntent(req.body.confirmPayment)) {
+      return res.status(400).json({ message: "Payment confirmation is required" });
+    }
+
+    const requestOrigin = typeof req.headers.origin === "string" ? req.headers.origin : "";
+    const frontendUrl = requestOrigin || process.env.FRONTEND_URL || "http://localhost:5173";
+    const mobileScheme = String(process.env.MOBILE_APP_SCHEME || "hangout").trim();
+
+    const requestedSuccessUrl = typeof req.body?.success_url === "string" ? req.body.success_url.trim() : "";
+    const requestedCancelUrl = typeof req.body?.cancel_url === "string" ? req.body.cancel_url.trim() : "";
+
+    if (requestedSuccessUrl && !isAllowedCheckoutRedirectUrl({ url: requestedSuccessUrl, frontendUrl, mobileScheme })) {
+      return res.status(400).json({ message: "success_url non autorisee" });
+    }
+
+    if (requestedCancelUrl && !isAllowedCheckoutRedirectUrl({ url: requestedCancelUrl, frontendUrl, mobileScheme })) {
+      return res.status(400).json({ message: "cancel_url non autorisee" });
+    }
+
+    const defaultSuccessUrl = `${frontendUrl}/cart/success`;
+    const defaultCancelUrl = `${frontendUrl}/cart/cancel`;
+
+    let successUrl = requestedSuccessUrl || defaultSuccessUrl;
+    let cancelUrl = requestedCancelUrl || defaultCancelUrl;
+
+    successUrl = ensureQueryParam(successUrl, "session_id", "{CHECKOUT_SESSION_ID}");
+    successUrl = ensureQueryParam(successUrl, "cart", "1");
+    cancelUrl = ensureQueryParam(cancelUrl, "cart", "1");
+
+    const lineItems = payableEvents.map((event) => {
+      const price = Number(event.price ?? 0);
+      const amount = toStripeAmountCents(price);
+
+      return {
+        quantity: 1,
+        price_data: {
+          currency: "eur",
+          unit_amount: amount,
+          product_data: {
+            name: event.title || `Event #${event.id}`,
+            description: event.description || undefined,
+          },
+        },
+      };
+    });
+
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+      metadata: {
+        user_id: String(user_id),
+        cart_event_ids: payableEvents.map((event) => event.id).join(","),
+      },
+      client_reference_id: String(user_id),
+      payment_method_types: ["card"],
+      line_items: lineItems,
+    });
+
+    return res.json({
+      requiresPayment: true,
+      isPaid: false,
+      checkoutUrl: session.url,
+      sessionId: session.id,
+      expiresAt: session.expires_at,
+      payableEventIds: payableEvents.map((event) => event.id),
+    });
+  } catch (err) {
+    if (err?.message === "Stripe is not configured. Missing STRIPE_SECRET_KEY.") {
+      return res.status(503).json({ message: "Stripe n'est pas configure. Ajoute STRIPE_SECRET_KEY dans le .env backend." });
+    }
+    if (err?.type?.startsWith?.("Stripe")) {
+      return res.status(502).json({ message: "Erreur Stripe lors de la creation de session panier" });
+    }
+    next(err);
+  }
+};
+
+export const confirmCartStripeCheckoutSession = async (req, res, next) => {
+  try {
+    ensureStripeConfigured();
+    const stripe = getStripeClient();
+
+    const user_id = Number(req.user.id);
+    const sessionId = String(req.body?.session_id || "").trim();
+
+    if (!sessionId) {
+      return res.status(400).json({ message: "session_id requis" });
+    }
+
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    if (!session || session.mode !== "payment") {
+      return res.status(404).json({ message: "Session Stripe introuvable" });
+    }
+
+    const metadataUserId = Number(session?.metadata?.user_id);
+    if (metadataUserId && metadataUserId !== user_id) {
+      return res.status(403).json({ message: "Session Stripe non autorisee" });
+    }
+
+    if (session.payment_status !== "paid") {
+      return res.status(409).json({
+        message: "Paiement panier non confirme par Stripe",
+        confirmed: false,
+        paymentStatus: session.payment_status,
+      });
+    }
+
+    const metadataEventIds = normalizeEventIds(String(session?.metadata?.cart_event_ids || "").split(","));
+    const requestedEventIds = normalizeEventIds(req.body?.event_ids);
+    const eventIds = requestedEventIds.length ? requestedEventIds : metadataEventIds;
+
+    if (!eventIds.length) {
+      return res.status(400).json({ message: "event_ids manquants dans la session" });
+    }
+
+    const events = await Promise.all(eventIds.map((eventId) => EventModel.findById(eventId)));
+    if (events.some((event) => !event)) {
+      return res.status(404).json({ message: "Un ou plusieurs événements sont introuvables" });
+    }
+
+    const paidEvents = [];
+    const newlyPaidEvents = [];
+
+    for (const event of events) {
+      const price = Number(event.price ?? 0);
+      if (!Number.isFinite(price) || price <= 0) {
+        await InscriptionModel.create({ user_id, event_id: event.id });
+        continue;
+      }
+
+      const existingPayment = await PaymentModel.findPaidByUserAndEvent(user_id, event.id);
+      const payment = existingPayment || await PaymentModel.markPaid({
+        user_id,
+        event_id: event.id,
+        amount: String(price),
+      });
+
+      await InscriptionModel.create({ user_id, event_id: event.id });
+
+      const row = {
+        event_id: event.id,
+        title: event.title,
+        amount: String(payment.amount ?? price),
+        payment_date: payment.payment_date || new Date(),
+      };
+
+      paidEvents.push(row);
+      if (!existingPayment) {
+        newlyPaidEvents.push(row);
+      }
+    }
+
+    if (newlyPaidEvents.length > 0) {
+      const user = await UserModel.findById(user_id);
+      if (user?.email) {
+        const totalPaid = newlyPaidEvents.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+        await sendCartPaymentConfirmationEmail({
+          to: user.email,
+          userName: user.name,
+          items: newlyPaidEvents,
+          totalAmount: totalPaid.toFixed(2),
+          paymentDate: new Date(),
+        });
+      }
+    }
+
+    return res.json({
+      confirmed: true,
+      isPaid: true,
+      paidEvents,
+      eventIds,
+    });
+  } catch (err) {
+    if (err?.type?.startsWith?.("Stripe")) {
+      return res.status(502).json({ message: "Erreur Stripe lors de la verification de session panier" });
+    }
     next(err);
   }
 };

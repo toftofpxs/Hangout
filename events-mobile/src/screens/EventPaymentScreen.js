@@ -8,11 +8,19 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import * as Linking from 'expo-linking';
+import * as WebBrowser from 'expo-web-browser';
 import API from '../api/axios';
 import ScreenBackground from '../components/ScreenBackground';
-import { checkoutEventPayment, getPaymentStatus } from '../services/paymentsService';
+import {
+  confirmStripeCheckout,
+  createStripeCheckoutSession,
+  getPaymentStatus,
+} from '../services/paymentsService';
 import { formatDate } from '../utils/formatDate';
 import { colors, fonts, shadows } from '../theme';
+
+WebBrowser.maybeCompleteAuthSession();
 
 export default function EventPaymentScreen({ route, navigation }) {
   const eventId = Number(route.params?.eventId);
@@ -72,13 +80,56 @@ export default function EventPaymentScreen({ route, navigation }) {
 
       let paymentResult = { emailSent: false };
       if (freshStatus?.requiresPayment && !freshStatus?.isPaid) {
-        paymentResult = await checkoutEventPayment({
-          event_id: eventId,
-          confirmPayment: true,
+        const redirectBase = Linking.createURL('payment-return');
+        const successUrl = `${redirectBase}?status=success&event_id=${eventId}`;
+        const cancelUrl = `${redirectBase}?status=cancel&event_id=${eventId}`;
+
+        const checkoutSession = await createStripeCheckoutSession({
+          eventId,
+          successUrl,
+          cancelUrl,
         });
+
+        if (!checkoutSession?.checkoutUrl) {
+          throw new Error('Impossible de creer la session Stripe Checkout.');
+        }
+
+        const browserResult = await WebBrowser.openAuthSessionAsync(
+          checkoutSession.checkoutUrl,
+          redirectBase
+        );
+
+        if (browserResult.type !== 'success' || !browserResult.url) {
+          Alert.alert('Paiement annulé', 'Le paiement a été annulé ou interrompu.');
+          return;
+        }
+
+        const parsed = Linking.parse(browserResult.url);
+        const status = String(parsed.queryParams?.status || '').toLowerCase();
+
+        if (status !== 'success') {
+          Alert.alert('Paiement annulé', 'Aucun paiement n\'a ete valide.');
+          return;
+        }
+
+        const sessionId = String(parsed.queryParams?.session_id || '').trim();
+        const returnedEventId = Number(parsed.queryParams?.event_id || eventId);
+
+        if (!sessionId) {
+          throw new Error('Session Stripe introuvable au retour du paiement.');
+        }
+
+        await confirmStripeCheckout({
+          sessionId,
+          eventId: returnedEventId,
+        });
+
+        paymentResult = { emailSent: true };
       }
 
-      await API.post('/inscriptions', { event_id: eventId });
+      if (!freshStatus?.requiresPayment || freshStatus?.isPaid) {
+        await API.post('/inscriptions', { event_id: eventId });
+      }
 
       if (paymentResult.emailSent) {
         Alert.alert('Succès', 'Paiement validé + inscription confirmée. Email de confirmation envoyé.');
